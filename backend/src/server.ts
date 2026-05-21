@@ -1,0 +1,94 @@
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import path from "path";
+import connectDB from "./config/db";
+import { errorHandler } from "./middleware/errorHandler";
+
+// ── Import all models first so Mongoose registers them before any route uses populate ──
+import "./models/User";
+import "./models/Patient";
+import "./models/Medicine";
+import "./models/Queue";
+import "./models/Prescription";
+import "./models/Staff";
+import "./models/PasswordReset";
+
+// Routes
+import authRoutes         from "./routes/authRoutes";
+import patientRoutes      from "./routes/patientRoutes";
+import queueRoutes        from "./routes/queueRoutes";
+import prescriptionRoutes from "./routes/prescriptionRoutes";
+import medicineRoutes     from "./routes/medicineRoutes";
+import adminRoutes        from "./routes/adminRoutes";
+import pharmacyRoutes     from "./routes/pharmacyRoutes";
+
+const app = express();
+
+app.use(helmet({ crossOriginResourcePolicy: false }));
+// CORS: allow clinic software (local LAN) and admin website (cloud)
+const ALLOWED_ORIGINS = [
+  // Admin website (production)
+  process.env.ADMIN_URL,
+  // Common local development origins
+  "http://localhost:5173",
+  "http://localhost:4173",
+  "http://localhost:3000",
+  // LAN access (clinic software on local network)
+].filter(Boolean) as string[];
+
+app.use(cors({
+  // Allow any origin starting with http://192.168. or http://10. (LAN)
+  // plus explicitly listed origins above
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // same-origin / mobile apps
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    if (/^http:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin))
+      return callback(null, true); // LAN access
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+app.options("*", cors({ origin: true, credentials: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+app.use("/api/auth",          authRoutes);
+app.use("/api/patients",      patientRoutes);
+app.use("/api/queue",         queueRoutes);
+app.use("/api/prescriptions", prescriptionRoutes);
+app.use("/api/medicines",     medicineRoutes);
+app.use("/api/admin",         adminRoutes);
+app.use("/api/pharmacy",      pharmacyRoutes);
+
+app.get("/api/health", (_req, res) => res.json({ status: "ok", timestamp: new Date() }));
+
+app.use(errorHandler);
+
+const PORT = Number(process.env.PORT) || 5000;
+
+const startServer = (port: number) => {
+  const server = app.listen(port, () => {
+    // Set the actual running port so authController can build correct photo URLs
+    process.env.PORT = String(port);
+    console.log(`🚀  Server running on http://localhost:${port}`);
+  });
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.warn(`⚠️  Port ${port} in use — trying ${port + 1}...`);
+      server.close();
+      startServer(port + 1);
+    } else {
+      console.error("❌  Server error:", err);
+      process.exit(1);
+    }
+  });
+};
+
+connectDB().then(() => startServer(PORT));
