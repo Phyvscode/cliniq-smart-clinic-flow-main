@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Stethoscope, UserCheck, Pill } from "lucide-react";
@@ -10,8 +10,15 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Role | null>(null);
 
+  // Always clear session when landing on home page
+  // This allows any role to log in fresh on the same machine
+  useEffect(() => {
+    localStorage.removeItem("cliniq_token");
+    localStorage.removeItem("cliniq_user");
+  }, []);
+
   const handleLogin = () => {
-    if (selected === "doctor")      navigate("/doctor");
+    if (selected === "doctor")          navigate("/doctor");
     else if (selected === "reception")  navigate("/reception");
     else if (selected === "pharmacist") navigate("/pharmacy/login");
   };

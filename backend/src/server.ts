@@ -17,6 +17,7 @@ import "./models/Prescription";
 import "./models/Staff";
 import "./models/PasswordReset";
 import "./models/SalaryConfig";
+import "./models/Payment";
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 import authRoutes         from "./routes/authRoutes";
@@ -28,6 +29,7 @@ import adminRoutes        from "./routes/adminRoutes";
 import pharmacyRoutes     from "./routes/pharmacyRoutes";
 import revenueRoutes      from "./routes/revenueRoutes";
 import salaryRoutes       from "./routes/salaryRoutes";
+import paymentRoutes      from "./routes/paymentRoutes";
 
 const app = express();
 
@@ -117,6 +119,7 @@ app.use("/api/admin",         adminRoutes);
 app.use("/api/pharmacy",      pharmacyRoutes);
 app.use("/api/revenue",       revenueRoutes);
 app.use("/api/salary",        salaryRoutes);
+app.use("/api/payments",      paymentRoutes);
 
 // ── Error handler ─────────────────────────────────────────────────────────────
 app.use(errorHandler);

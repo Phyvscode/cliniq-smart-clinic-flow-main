@@ -10,27 +10,27 @@ import {
 
 interface ClinicContextType {
   // Data
-  patients:          Patient[];
-  prescriptions:     Prescription[];
-  queue:             QueueEntry[];
-  medicines:         Medicine[];
+  patients: Patient[];
+  prescriptions: Prescription[];
+  queue: QueueEntry[];
+  medicines: Medicine[];
   currentQueueIndex: number;
-  loading:           boolean;
+  loading: boolean;
   // Patient
-  addPatient:          (patient: Omit<Patient, "id">) => Promise<Patient>;
-  findPatientByPhone:  (phone: string) => Patient | undefined;
-  refreshPatients:     () => Promise<void>;
+  addPatient: (patient: Omit<Patient, "id">) => Promise<Patient>;
+  findPatientByPhone: (phone: string) => Patient | undefined;
+  refreshPatients: () => Promise<void>;
   // Queue
-  addToQueue:      (patientId: string, doctorId?: string) => Promise<QueueEntry>; // ← doctorId added
-  nextPatient:     () => Promise<void>;
+  addToQueue: (patientId: string, doctorId?: string) => Promise<QueueEntry>;
+  nextPatient: () => Promise<void>;
   removeFromQueue: (queueEntryId: string) => Promise<void>;
-  refreshQueue:    () => Promise<void>;
+  refreshQueue: () => Promise<void>;
   // Medicines
   refreshMedicines: () => Promise<void>;
   // Prescription / Diagnosis
-  getCurrentPatient:      () => { patient: Patient; queueEntry: QueueEntry } | null;
-  savePrescription:       (patientId: string, medicines: PrescriptionMedicine[], notes?: string) => Promise<string>;
-  getPatientPrescriptions:(patientId: string) => Promise<Prescription[]>;
+  getCurrentPatient: () => { patient: Patient; queueEntry: QueueEntry } | null;
+  savePrescription: (patientId: string, medicines: PrescriptionMedicine[], notes?: string) => Promise<string>;
+  getPatientPrescriptions: (patientId: string) => Promise<Prescription[]>;
 }
 
 const ClinicContext = createContext<ClinicContextType | null>(null);
@@ -51,41 +51,39 @@ const normalise = (obj: any): any => {
     out.medicines = out.medicines.map((m: any) => ({
       ...m,
       medicineId: m.medicineId || (m.medicine?._id ? String(m.medicine._id) : m.medicine),
-      name:       m.medicineName || m.name,
+      name: m.medicineName || m.name,
     }));
   }
   return out;
 };
 
 export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [patients,      setPatients]      = useState<Patient[]>([]);
+  const [patients, setPatients]           = useState<Patient[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-  const [queue,         setQueue]         = useState<QueueEntry[]>([]);
-  const [medicines,     setMedicines]     = useState<Medicine[]>([]);
-  const [loading,       setLoading]       = useState(false);
+  const [queue, setQueue]                 = useState<QueueEntry[]>([]);
+  const [medicines, setMedicines]         = useState<Medicine[]>([]);
+  const [loading, setLoading]             = useState(false);
 
   const refreshPatients = useCallback(async () => {
     try {
       const res = await apiGetPatients();
       setPatients(normalise(res.patients || []));
-    } catch {}
+    } catch { }
   }, []);
 
   const refreshQueue = useCallback(async () => {
     try {
       const res = await apiGetQueue();
       const entries: QueueEntry[] = (res.queue || []).map((q: any) => ({
-        id:             String(q._id || q.id),
-        patientId:      q.patient?._id ? String(q.patient._id) : String(q.patient),
-        queueNumber:    q.queueNumber,
-        status:         q.status,
-        addedAt:        q.createdAt || q.addedAt || new Date().toISOString(),
-        assignedDoctor: q.assignedDoctor || null,   // ← preserve doctor info
-        _patient:       q.patient && typeof q.patient === "object" ? normalise(q.patient) : null,
+        id:          String(q._id || q.id),
+        patientId:   q.patient?._id ? String(q.patient._id) : String(q.patient),
+        queueNumber: q.queueNumber,
+        status:      q.status,
+        addedAt:     q.createdAt || q.addedAt || new Date().toISOString(),
+        _patient:    q.patient && typeof q.patient === "object" ? normalise(q.patient) : null,
       }));
       setQueue(entries);
 
-      // Merge any inline patient data
       const inlinePatients = entries
         .filter((e: any) => e._patient)
         .map((e: any) => ({ ...e._patient, id: e.patientId }));
@@ -96,9 +94,10 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return Array.from(map.values());
         });
       }
-    } catch {}
+    } catch { }
   }, []);
 
+  // Exposed so DoctorPrescription can call it on mount to get latest medicines
   const refreshMedicines = useCallback(async () => {
     try {
       const res = await apiGetMedicines();
@@ -107,7 +106,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: m.name,
         type: m.type,
       })));
-    } catch {}
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -131,18 +130,16 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return patient;
   }, []);
 
-  // ← doctorId added as optional second parameter
   const addToQueue = useCallback(async (patientId: string, doctorId?: string) => {
     const res   = await apiAddToQueue(patientId, doctorId);
     await refreshQueue();
     const entry = res.entry;
     return {
-      id:             String(entry._id || entry.id),
+      id:          String(entry._id || entry.id),
       patientId,
-      queueNumber:    entry.queueNumber,
-      status:         entry.status,
-      addedAt:        entry.createdAt || new Date().toISOString(),
-      assignedDoctor: entry.assignedDoctor || null,
+      queueNumber: entry.queueNumber,
+      status:      entry.status,
+      addedAt:     entry.createdAt || new Date().toISOString(),
     } as QueueEntry;
   }, [refreshQueue]);
 
@@ -204,12 +201,12 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       doctorName: rx.doctorName,
       date:       rx.date || rx.createdAt?.split("T")[0] || "",
       medicines:  (rx.medicines || []).map((m: any) => ({
-        medicineId:   m.medicineId || String(m.medicine?._id || m.medicine),
-        name:         m.medicineName || m.name,
-        morning:      m.morning,
-        afternoon:    m.afternoon,
-        evening:      m.evening,
-        night:        m.night,
+        medicineId:  m.medicineId || String(m.medicine?._id || m.medicine),
+        name:        m.medicineName || m.name,
+        morning:     m.morning,
+        afternoon:   m.afternoon,
+        evening:     m.evening,
+        night:       m.night,
         durationDays: m.durationDays,
       })),
       notes: rx.notes,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { UserCheck, ChevronDown, User } from "lucide-react";
+import { UserCheck, ChevronDown, User , ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useClinic } from "@/context/ClinicContext";
 import ForgotPinModal from "@/components/ForgotPinModal";
@@ -85,8 +85,12 @@ const ReceptionAuthPage = () => {
       if (!res.ok) throw new Error(data.message || "Login failed");
       localStorage.setItem("cliniq_token", data.token);
       localStorage.setItem("cliniq_user", JSON.stringify(data.user));
-      await Promise.all([refreshPatients(), refreshQueue()]);
       navigate("/reception/dashboard");
+      // Refresh context in background — non-blocking
+      Promise.all([
+        refreshPatients().catch(() => {}),
+        refreshQueue().catch(() => {}),
+      ]);
     } catch (err: any) {
       setError(err.message || "Login failed");
       setPin(["", "", "", "", "", ""]);
@@ -95,7 +99,10 @@ const ReceptionAuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+    <div className="min-h-screen flex items-center justify-center bg-background p-6 relative">
+      <button onClick={() => navigate("/")} className="absolute top-4 right-4 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }} className="w-full max-w-sm">
 
