@@ -111,22 +111,19 @@ export const createStaff = asyncHandler(async (req: AuthRequest, res: Response) 
     throw staffErr;  // re-throw so error handler returns proper message
   }
 
-  let emailSent = false;
-  try {
-    await sendCredentialsEmail({ to: email, name, role, email, pin: String(pin) });
-    emailSent = true;
-  } catch (emailErr) {
-    console.error("Email send failed:", emailErr);
-  }
-
   const label = ROLE_LABELS[role] ?? role;
+
+  // Respond immediately — send email in background so admin doesn't wait
   res.status(201).json({
-    message: emailSent
-      ? `${label} created and PIN emailed to ${email}`
-      : `${label} created but email delivery failed`,
-    emailSent,
+    message: `${label} created successfully. PIN will be emailed to ${email} shortly.`,
+    emailSent: false,
     user: { id: user._id, name: user.name, email: user.email, role: user.role },
   });
+
+  // Fire-and-forget email (non-blocking)
+  sendCredentialsEmail({ to: email, name, role, email, pin: String(pin) })
+    .then(() => console.log(`PIN emailed to ${email}`))
+    .catch((err: Error) => console.error("Email send failed:", err.message));
 });
 
 // GET /api/admin/staff
@@ -150,10 +147,11 @@ export const getStaffByRole = asyncHandler(async (req: AuthRequest, res: Respons
   res.json({ staff });
 });
 
-// DELETE /api/admin/staff/:userId
+// DELETE /api/admin/staff/:id
 export const deleteStaff = asyncHandler(async (req: AuthRequest, res: Response) => {
-  await Staff.findOneAndDelete({ user: req.params.userId });
-  await User.findByIdAndDelete(req.params.userId);
+  const id = req.params.id || req.params.userId;
+  await Staff.findOneAndDelete({ user: id });
+  await User.findByIdAndDelete(id);
   res.json({ message: "Staff member deleted" });
 });
 
@@ -165,7 +163,7 @@ export const updateConsultationFee = asyncHandler(async (req: AuthRequest, res: 
     return;
   }
   const staff = await Staff.findOneAndUpdate(
-    { user: req.params.userId },
+    { user: req.params.id || req.params.userId },
     { consultationFee: Number(fee) },
     { new: true }
   ).populate("user", "name email role");
