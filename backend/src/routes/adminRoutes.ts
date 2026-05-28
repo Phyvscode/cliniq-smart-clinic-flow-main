@@ -57,6 +57,5 @@ router.delete("/staff/:id",   deleteStaff);
 
 // Update doctor consultation fee
 router.patch("/staff/:id/fee",    updateConsultationFee);
-router.delete("/cleanup-orphans",   cleanupOrphanedUsers);
 
 export default router;
