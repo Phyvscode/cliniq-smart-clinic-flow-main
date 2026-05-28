@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Pill, ChevronDown, User } from "lucide-react";
+import { Pill, ChevronDown, User, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ForgotPinModal from "@/components/ForgotPinModal";
 
@@ -90,7 +90,10 @@ const PharmacyAuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+    <div className="min-h-screen flex items-center justify-center bg-background p-6 relative">
+      <button onClick={() => navigate("/")} className="absolute top-4 right-4 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
       <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}
         transition={{ duration:0.5 }} className="w-full max-w-sm">
 

@@ -54,9 +54,10 @@ export const upsertSalaryConfig = asyncHandler(async (req: AuthRequest, res: Res
     return;
   }
 
+  const ALL_STAFF_ROLES = ["doctor","reception","lab_staff","radiologist","nurse","housekeeping","pharmacist"];
   const doctor = await User.findById(doctorId).lean();
-  if (!doctor || (doctor as any).role !== "doctor") {
-    res.status(404).json({ message: "Doctor not found" });
+  if (!doctor || !ALL_STAFF_ROLES.includes((doctor as any).role)) {
+    res.status(404).json({ message: "Staff member not found" });
     return;
   }
 

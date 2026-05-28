@@ -539,14 +539,14 @@ const PharmacyDashboard = () => {
           <h1 className="font-semibold text-foreground">{userName}</h1>
           <p className="text-xs text-muted-foreground">Pharmacist · ClinIQ</p>
         </div>
-        <button onClick={() => setShowChangePin(true)}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted mr-1">
-          <KeyRound className="w-3.5 h-3.5" /> Change PIN
-        </button>
-        <button onClick={handleLogout}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted">
-          <LogOut className="w-3.5 h-3.5" /> Logout
-        </button>
+        <Button variant="ghost" size="sm" onClick={() => setShowChangePin(true)}
+          className="gap-1.5 text-muted-foreground hover:text-foreground">
+          <KeyRound className="w-4 h-4" /> Change PIN
+        </Button>
+        <Button variant="ghost" size="sm" onClick={handleLogout}
+          className="gap-1.5 text-muted-foreground hover:text-foreground">
+          <LogOut className="w-4 h-4" /> Logout
+        </Button>
       </header>
 
       {/* Tab bar */}

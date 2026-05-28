@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ChangePinModal from "@/components/ChangePinModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Phone, UserCheck, CheckCircle2, ChevronDown,
-  Trash2, RefreshCw, Search, UserX, ClipboardList, LogOut,
+  Trash2, RefreshCw, Search, UserX, ClipboardList, LogOut, KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -524,6 +525,8 @@ const ReceptionDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("register");
 
+  const [showChangePin, setShowChangePin] = useState(false);
+
   const handleLogout = () => {
     localStorage.removeItem("cliniq_token");
     localStorage.removeItem("cliniq_user");
@@ -549,12 +552,16 @@ const ReceptionDashboard = () => {
             <p className="text-xs text-muted-foreground">ClinIQ</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">{activeQueue.length} in queue</span>
-          <button onClick={handleLogout}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg hover:bg-muted transition-colors">
-            <LogOut className="w-3.5 h-3.5" /> Switch Role
-          </button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground mr-1">{activeQueue.length} in queue</span>
+          <Button variant="ghost" size="sm" onClick={() => setShowChangePin(true)}
+            className="gap-1.5 text-muted-foreground hover:text-foreground">
+            <KeyRound className="w-4 h-4" /> Change PIN
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleLogout}
+            className="gap-1.5 text-muted-foreground hover:text-foreground">
+            <LogOut className="w-4 h-4" /> Logout
+          </Button>
         </div>
       </header>
 
@@ -597,6 +604,7 @@ const ReceptionDashboard = () => {
           )}
         </AnimatePresence>
       </div>
+      <ChangePinModal open={showChangePin} onClose={() => setShowChangePin(false)} />
     </div>
   );
 };
