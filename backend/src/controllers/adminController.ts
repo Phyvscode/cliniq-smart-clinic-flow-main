@@ -165,3 +165,23 @@ export const updateConsultationFee = asyncHandler(async (req: AuthRequest, res: 
   if (!staff) { res.status(404).json({ message: "Staff not found" }); return; }
   res.json({ staff });
 });
+
+// DELETE /api/admin/cleanup-orphans — removes users with no matching Staff record
+export const cleanupOrphanedUsers = asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const allUsers = await User.find({ role: { $ne: "admin" } }).lean();
+  const staffUserIds = (await Staff.find({}).lean()).map((s: any) => String(s.user));
+  
+  const orphans = allUsers.filter((u: any) => !staffUserIds.includes(String(u._id)));
+  
+  if (orphans.length === 0) {
+    res.json({ message: "No orphaned users found", deleted: 0 });
+    return;
+  }
+  
+  await User.deleteMany({ _id: { $in: orphans.map((u: any) => u._id) } });
+  res.json({ 
+    message: `Cleaned up ${orphans.length} orphaned user(s)`, 
+    deleted: orphans.length,
+    names: orphans.map((u: any) => u.name)
+  });
+});
