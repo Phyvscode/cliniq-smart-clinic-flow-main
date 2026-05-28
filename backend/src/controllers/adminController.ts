@@ -84,25 +84,32 @@ export const createStaff = asyncHandler(async (req: AuthRequest, res: Response) 
   user.pin   = String(pin);
   await user.save();
 
-  await Staff.create({
-    user:            user._id,
-    role,
-    dateOfBirth:     new Date(dateOfBirth),
-    gender,
-    address:         address        || "",
-    photoUrl,
-    documentUrl,
-    specialization:  specialization || undefined,
-    qualification:   qualification  || undefined,
-    licenseNumber:   licenseNumber  || undefined,
-    availableDays:   days,
-    timeStart:       timeStart      || "09:00",
-    timeEnd:         timeEnd        || "17:00",
-    room:            room           || undefined,
-    department:      department     || undefined,
-    consultationFee: consultationFee ? Number(consultationFee) : 0,
-    signatureUrl:    signatureUrl   || undefined,
-  });
+  // Create Staff — if this fails, delete the User so the email is freed
+  try {
+    await Staff.create({
+      user:            user._id,
+      role,
+      dateOfBirth:     new Date(dateOfBirth),
+      gender,
+      address:         address        || "",
+      photoUrl,
+      documentUrl,
+      specialization:  specialization || undefined,
+      qualification:   qualification  || undefined,
+      licenseNumber:   licenseNumber  || undefined,
+      availableDays:   days,
+      timeStart:       timeStart      || "09:00",
+      timeEnd:         timeEnd        || "17:00",
+      room:            room           || undefined,
+      department:      department     || undefined,
+      consultationFee: consultationFee ? Number(consultationFee) : 0,
+      signatureUrl:    signatureUrl   || undefined,
+    });
+  } catch (staffErr) {
+    // Rollback — delete the user so the email is not permanently locked
+    await User.findByIdAndDelete(user._id);
+    throw staffErr;  // re-throw so error handler returns proper message
+  }
 
   let emailSent = false;
   try {
