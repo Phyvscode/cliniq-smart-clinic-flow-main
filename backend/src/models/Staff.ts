@@ -2,13 +2,12 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface IStaff extends Document {
   user: mongoose.Types.ObjectId;       // ref → User
-  role: "doctor" | "reception";
+  role: "doctor" | "reception" | "lab_staff" | "radiologist" | "nurse" | "housekeeping" | "pharmacist";
   dateOfBirth: Date;
   gender: "Male" | "Female" | "Other";
   address: string;
   photoUrl?: string;                   // saved file path
   documentUrl?: string;                // PDF file path
-  signatureUrl?: string;               // signature image path
   // Professional
   specialization?: string;             // doctors only
   qualification?: string;
@@ -24,13 +23,12 @@ export interface IStaff extends Document {
 const StaffSchema = new Schema<IStaff>(
   {
     user:           { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true },
-    role:           { type: String, enum: ["doctor", "reception"], required: true },
+    role:           { type: String, enum: ["doctor","reception","lab_staff","radiologist","nurse","housekeeping","pharmacist"], required: true },
     dateOfBirth:    { type: Date, required: true },
     gender:         { type: String, enum: ["Male", "Female", "Other"], required: true },
     address:        { type: String, default: "" },
     photoUrl:       { type: String },
     documentUrl:    { type: String },
-    signatureUrl:   { type: String },
     specialization: { type: String },
     qualification:  { type: String },
     licenseNumber:  { type: String },
