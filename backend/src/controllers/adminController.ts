@@ -129,3 +129,36 @@ export const deleteStaff = asyncHandler(async (req: AuthRequest, res: Response) 
   // Nothing found — still return success (already deleted)
   res.json({ message: "Staff member deleted" });
 });
+// PATCH /api/admin/staff/:id/fee
+export const updateConsultationFee = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { fee } = req.body;
+  if (fee === undefined || Number(fee) < 0) {
+    res.status(400).json({ message: "Valid fee is required" });
+    return;
+  }
+  const id = req.params.id || req.params.userId;
+  const staff = await Staff.findOneAndUpdate(
+    { user: id },
+    { consultationFee: Number(fee) },
+    { new: true }
+  ).populate("user", "name email role");
+  if (!staff) { res.status(404).json({ message: "Staff not found" }); return; }
+  res.json({ staff });
+});
+
+// DELETE /api/admin/cleanup-orphans
+export const cleanupOrphanedUsers = asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const allUsers   = await User.find({ role: { $ne: "admin" } }).lean();
+  const staffUserIds = (await Staff.find({}).lean()).map((s: any) => String(s.user));
+  const orphans    = allUsers.filter((u: any) => !staffUserIds.includes(String(u._id)));
+  if (orphans.length === 0) {
+    res.json({ message: "No orphaned users found", deleted: 0 });
+    return;
+  }
+  await User.deleteMany({ _id: { $in: orphans.map((u: any) => u._id) } });
+  res.json({
+    message: `Cleaned up ${orphans.length} orphaned user(s)`,
+    deleted: orphans.length,
+    names:   orphans.map((u: any) => u.name),
+  });
+});

@@ -9,6 +9,7 @@ import {
   getStaffByRole,
   deleteStaff,
   updateConsultationFee,
+  cleanupOrphanedUsers,
 } from "../controllers/adminController";
 
 // ── Multer setup (inline — no external import needed) ────────────────────────
@@ -57,5 +58,6 @@ router.delete("/staff/:id",   deleteStaff);
 
 // Update doctor consultation fee
 router.patch("/staff/:id/fee",    updateConsultationFee);
+router.delete("/cleanup-orphans",  cleanupOrphanedUsers);
 
 export default router;
