@@ -42,20 +42,38 @@ export const sendOtpEmail = async (to: string, name: string, otp: string): Promi
   });
 };
 
-// ── Credentials Email (sends PIN to new doctor/receptionist) ───────────────────
+// ── Role label map ─────────────────────────────────────────────────────────────
+const ROLE_LABELS: Record<string, string> = {
+  doctor:       "Doctor",
+  reception:    "Receptionist",
+  lab_staff:    "Lab Staff",
+  radiologist:  "Radiologist",
+  nurse:        "Nurse",
+  housekeeping: "Housekeeping Staff",
+  pharmacist:   "Pharmacist",
+};
+
+// ── Credentials Email (sends PIN to new staff member) ─────────────────────────
 export interface CredentialsEmailOptions {
   to:          string;
   name:        string;
-  role:        "doctor" | "reception";
+  role:        string;   // any role — not just doctor/reception
   email:       string;
   pin:         string;
   clinicName?: string;
 }
 
 export const sendCredentialsEmail = async (opts: CredentialsEmailOptions): Promise<void> => {
+  // Validate SMTP config before attempting
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.error("❌ Email not sent: SMTP_USER or SMTP_PASS not set in environment");
+    throw new Error("Email configuration missing on server");
+  }
+
   const transporter = createTransporter();
   const clinic      = opts.clinicName || "ClinIQ";
-  const roleLabel   = opts.role === "doctor" ? "Doctor" : "Receptionist";
+  const roleLabel   = ROLE_LABELS[opts.role] || opts.role;
+
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
   <style>
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f4f5;margin:0;padding:0}
@@ -77,7 +95,7 @@ export const sendCredentialsEmail = async (opts: CredentialsEmailOptions): Promi
       <p style="font-size:16px;color:#18181b;">Hello <strong>${opts.name}</strong>,</p>
       <p style="color:#3f3f46;font-size:14px;line-height:1.6;">
         Welcome to ${clinic}! Your ${roleLabel} account has been created by the admin.
-        Use the PIN below to log in.
+        Use the PIN below to log in to the ClinIQ app.
       </p>
       <div class="info">
         <p>Login Email</p><strong>${opts.email}</strong>
@@ -90,18 +108,16 @@ export const sendCredentialsEmail = async (opts: CredentialsEmailOptions): Promi
       <p class="note">
         Please change your PIN after your first login. Keep it safe and do not share it with anyone.
       </p>
-      <p class="note">
-        Login at: <a href="${process.env.CLIENT_URL || "http://localhost:5173"}" style="color:#2563eb;">
-          ${process.env.CLIENT_URL || "http://localhost:5173"}
-        </a>
-      </p>
     </div>
     <div class="f"><p>© ${new Date().getFullYear()} ${clinic}. Automated email — do not reply.</p></div>
   </div></body></html>`;
+
   await transporter.sendMail({
     from:    `"${clinic}" <${process.env.SMTP_USER}>`,
     to:      opts.to,
     subject: `Your ${clinic} ${roleLabel} Login PIN`,
     html,
   });
+
+  console.log(`✅ PIN email sent to ${opts.to} (${roleLabel})`);
 };
