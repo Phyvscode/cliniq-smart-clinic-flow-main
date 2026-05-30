@@ -149,17 +149,29 @@ export const updateConsultationFee = asyncHandler(async (req: AuthRequest, res: 
 
 // DELETE /api/admin/cleanup-orphans
 export const cleanupOrphanedUsers = asyncHandler(async (_req: AuthRequest, res: Response) => {
-  const allUsers   = await User.find({ role: { $ne: "admin" } }).lean();
-  const staffUserIds = (await Staff.find({}).lean()).map((s: any) => String(s.user));
-  const orphans    = allUsers.filter((u: any) => !staffUserIds.includes(String(u._id)));
-  if (orphans.length === 0) {
-    res.json({ message: "No orphaned users found", deleted: 0 });
-    return;
+  // 1. Remove Users that have no matching Staff record
+  const allStaff     = await Staff.find({}).lean();
+  const staffUserIds = allStaff.map((s: any) => String(s.user)).filter(Boolean);
+  const allUsers     = await User.find({ role: { $ne: "admin" } }).lean();
+  const orphanUsers  = allUsers.filter((u: any) => !staffUserIds.includes(String(u._id)));
+  if (orphanUsers.length > 0) {
+    await User.deleteMany({ _id: { $in: orphanUsers.map((u: any) => u._id) } });
   }
-  await User.deleteMany({ _id: { $in: orphans.map((u: any) => u._id) } });
+
+  // 2. Remove Staff records that have no linked User (null/missing user field)
+  const allStaffRecords  = await Staff.find({}).lean() as any[];
+  const allUserIds       = (await User.find({}).lean()).map((u: any) => String(u._id));
+  const orphanStaff      = allStaffRecords.filter(
+    (s: any) => !s.user || !allUserIds.includes(String(s.user))
+  );
+  if (orphanStaff.length > 0) {
+    await Staff.deleteMany({ _id: { $in: orphanStaff.map((s: any) => s._id) } });
+  }
+
+  const totalDeleted = orphanUsers.length + orphanStaff.length;
   res.json({
-    message: `Cleaned up ${orphans.length} orphaned user(s)`,
-    deleted: orphans.length,
-    names:   orphans.map((u: any) => u.name),
+    message:      totalDeleted > 0 ? `Cleaned up ${totalDeleted} orphaned record(s)` : "No orphaned records found",
+    deletedUsers: orphanUsers.length,
+    deletedStaff: orphanStaff.length,
   });
 });
