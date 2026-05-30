@@ -1,5 +1,6 @@
 import { Response } from "express";
 import User from "../models/User";
+const ALL_STAFF_ROLES = ["doctor","reception","lab_staff","radiologist","nurse","housekeeping","pharmacist"];
 import Staff from "../models/Staff";
 import { AuthRequest } from "../middleware/auth";
 import { asyncHandler } from "../middleware/errorHandler";
@@ -23,8 +24,8 @@ export const createStaff = asyncHandler(async (req: AuthRequest, res: Response) 
     res.status(400).json({ message: "PIN must be exactly 6 digits" });
     return;
   }
-  if (!["doctor", "reception"].includes(role)) {
-    res.status(400).json({ message: "Role must be doctor or reception" });
+  if (!ALL_STAFF_ROLES.includes(role)) {
+    res.status(400).json({ message: `Invalid role. Must be one of: ${ALL_STAFF_ROLES.join(", ")}` });
     return;
   }
 

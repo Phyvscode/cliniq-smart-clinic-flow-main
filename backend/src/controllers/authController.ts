@@ -60,9 +60,9 @@ export const pinLogin = asyncHandler(async (req: Request, res: Response) => {
 // GET /api/auth/staff-list?role=doctor|reception  (public — for dropdown)
 export const getStaffList = asyncHandler(async (req: Request, res: Response) => {
   const { role } = req.query;
-  const ALL_ROLES = ["doctor","reception","lab_staff","radiologist","nurse","housekeeping","pharmacist"];
+  const ALL_ROLES = ["doctor","reception","lab_staff","radiologist","nurse","housekeeping","pharmacist","admin"];
   if (!role || !ALL_ROLES.includes(role as string)) {
-    res.status(400).json({ message: `role must be one of: ${ALL_ROLES.join(", ")}` }); return;
+    res.status(400).json({ message: "Invalid role" }); return;
   }
   const users = await User.find({ role }).select("_id name email").sort({ name: 1 });
   // Use SERVER_URL for local file serving (not BASE_URL which may be ngrok)
