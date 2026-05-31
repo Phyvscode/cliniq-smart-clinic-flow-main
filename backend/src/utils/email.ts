@@ -1,12 +1,26 @@
 import nodemailer from "nodemailer";
 
-const createTransporter = () =>
-  nodemailer.createTransport({
-    host:   process.env.SMTP_HOST || "smtp.gmail.com",
-    port:   Number(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+const createTransporter = () => {
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!user || !pass) {
+    console.error("❌ SMTP not configured: SMTP_USER or SMTP_PASS missing");
+    throw new Error("Email service not configured");
+  }
+
+  console.log(`📧 Creating transporter: ${host}:${port} user=${user}`);
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,   // true for 465, false for 587
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false },   // allow self-signed certs
   });
+};
 
 // ── OTP Email (for forgot PIN / forgot password) ───────────────────────────────
 export const sendOtpEmail = async (to: string, name: string, otp: string): Promise<void> => {
@@ -73,6 +87,10 @@ export const sendCredentialsEmail = async (opts: CredentialsEmailOptions): Promi
   const transporter = createTransporter();
   const clinic      = opts.clinicName || "ClinIQ";
   const roleLabel   = ROLE_LABELS[opts.role] || opts.role;
+
+  // Verify connection before sending
+  await transporter.verify();
+  console.log(`✅ SMTP connection verified, sending to ${opts.to}`);
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
   <style>
