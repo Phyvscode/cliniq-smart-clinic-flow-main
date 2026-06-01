@@ -395,15 +395,21 @@ const DoctorPrescription = () => {
     if (!current || medicines.length === 0) return;
     setSaving(true);
     try {
-      const diagnosisData = sessionStorage.getItem("currentDiagnosis");
-      const problems      = diagnosisData ? JSON.parse(diagnosisData).problems || [] : [];
-      const queueEntry    = queue.find(q => q.patientId === current.patient.id && q.status !== "done");
+      const diagnosisData  = sessionStorage.getItem("currentDiagnosis");
+      const parsed         = diagnosisData ? JSON.parse(diagnosisData) : {};
+      const problems       = parsed.problems       || [];
+      const investigations = parsed.investigations || [];
+      const diagnoses      = parsed.diagnoses      || [];
+      const queueEntry     = queue.find(q => q.patientId === current.patient.id && q.status !== "done");
 
       const finalSpecialist = referralSpecialist || customSpecialist.trim();
 
       const res = await apiCreatePrescriptionDirect({
-        patientId:    current.patient.id,
+        patientId:      current.patient.id,
+        complaints:     problems,
         problems,
+        investigations,
+        diagnoses,
         medicines:    medicines.map(m => ({
           medicineId:        m.medicineId,
           morning:           m.morning,

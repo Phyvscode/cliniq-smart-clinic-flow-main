@@ -28,6 +28,9 @@ export interface PrescData {
   rxCode?:         string;   // e.g. 20260506001
   patientCode?:    string;   // permanent 6-digit patient code
   diagnosis?:      string;
+  complaints?:     string[];
+  investigations?: string[];
+  diagnoses?:      string[];
   problems?:       string[];
   medicines:       PrescMedicine[];
   notes?:          string;
@@ -70,14 +73,29 @@ export const buildPrescriptionHtml = (data: PrescData): string => {
       </tr>`;
   }).join("");
 
-  const problemsHtml = data.problems?.length
+  const allComplaints = data.complaints?.length ? data.complaints : (data.problems || []);
+  const problemsHtml = allComplaints.length
     ? `<div class="complaints">
         <span class="section-label">Chief Complaints:</span>
-        ${data.problems.map(p => `<span class="tag">${p}</span>`).join("")}
+        ${allComplaints.map((p: string) => `<span class="tag">${p}</span>`).join("")}
        </div>`
     : "";
 
-  const diagnosisHtml = data.diagnosis
+  const investigationsHtml = data.investigations?.length
+    ? `<div class="complaints">
+        <span class="section-label">Investigations Advised:</span>
+        ${data.investigations.map((t: string) => `<span class="tag tag-blue">${t}</span>`).join("")}
+       </div>`
+    : "";
+
+  const diagnosesHtml = data.diagnoses?.length
+    ? `<div class="complaints">
+        <span class="section-label">Diagnosis:</span>
+        ${data.diagnoses.map((d: string) => `<span class="tag tag-green">${d}</span>`).join("")}
+       </div>`
+    : "";
+
+  const diagnosisHtml = !data.diagnoses?.length && data.diagnosis
     ? `<div class="diagnosis-row">
         <span class="section-label">Diagnosis:</span>
         <span class="diagnosis-text">${data.diagnosis}</span>
@@ -140,6 +158,8 @@ export const buildPrescriptionHtml = (data: PrescData): string => {
   .info-cell p     { font-size: 13px; font-weight: 600; color: #1e293b; margin-top: 2px; }
 
   /* ── Complaints + Diagnosis ── */
+  .tag-blue { background: #eff6ff !important; color: #1d4ed8 !important; border-color: #bfdbfe !important; }
+  .tag-green { background: #f0fdf4 !important; color: #15803d !important; border-color: #bbf7d0 !important; }
   .complaints, .diagnosis-row {
     margin-bottom: 10px;
     display: flex;
@@ -239,7 +259,11 @@ ${data.rxCode ? `<div style="text-align:right;margin-bottom:10px;">
 <!-- Chief Complaints -->
 ${problemsHtml}
 
-<!-- Diagnosis -->
+<!-- Investigations -->
+${investigationsHtml}
+
+<!-- Diagnoses -->
+${diagnosesHtml}
 ${diagnosisHtml}
 
 <!-- Medicines -->

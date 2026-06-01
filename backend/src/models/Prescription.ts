@@ -1,75 +1,75 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 interface PrescriptionMedicineDoc {
-  medicine:           mongoose.Types.ObjectId;
-  dosageAmount?:      number;
-  dosageUnit?:        string;
-  morning:            boolean;
-  afternoon:          boolean;
-  evening:            boolean;
-  night:              boolean;
-  frequencyInterval?: string;
-  durationDays:       number;
-  instructions?:      string;
+  medicine:          mongoose.Types.ObjectId;
+  medicineName:      string;
+  morning:           boolean;
+  afternoon:         boolean;
+  evening:           boolean;
+  night:             boolean;
+  durationDays:      number;
+  instructions?:     string;
+  frequencyInterval?: string | null;
+  dosageAmount?:      number | null;
+  dosageUnit?:        string | null;
 }
 
 export interface IPrescription extends Document {
-  patient:             mongoose.Types.ObjectId;
-  doctor:              mongoose.Types.ObjectId;
-  queueEntry?:         mongoose.Types.ObjectId;
-  rxCode:              string;   // YYYYMMDDNNN — unique per visit
-  diagnosis?:          string;
-  problems:            string[];
-  medicines:           PrescriptionMedicineDoc[];
-  notes?:              string;
-  referral?:           { needed: boolean; specialist?: string; reason?: string };
-  labTests?:           { category: string; name: string }[];
-  collectedByPharmacy: boolean;
-  collectedAt?:        Date;
-  collectedBy?:        mongoose.Types.ObjectId;
-  paymentMethod?:      string;
+  patient:        mongoose.Types.ObjectId;
+  doctor:         mongoose.Types.ObjectId;
+  doctorName:     string;
+  complaints:     string[];   // patient complaints (was: problems)
+  problems:       string[];   // kept for backward compat
+  investigations: string[];   // tests advised
+  diagnoses:      string[];   // diagnosis
+  medicines:      PrescriptionMedicineDoc[];
+  notes?:         string;
+  referral?:      { specialist: string; notes?: string } | null;
+  labTests?:      { tests: string[]; notes?: string } | null;
+  rxCode?:        string;
+  date:           string;
 }
 
 const PrescriptionMedSchema = new Schema<PrescriptionMedicineDoc>(
   {
     medicine:          { type: Schema.Types.ObjectId, ref: "Medicine", required: true },
-    dosageAmount:      { type: Number },
-    dosageUnit:        { type: String },
+    medicineName:      { type: String, required: true },
     morning:           { type: Boolean, default: false },
     afternoon:         { type: Boolean, default: false },
     evening:           { type: Boolean, default: false },
     night:             { type: Boolean, default: false },
-    frequencyInterval: { type: String },
     durationDays:      { type: Number, required: true },
-    instructions:      { type: String },
+    instructions:      { type: String, default: "" },
+    frequencyInterval: { type: String, default: null },
+    dosageAmount:      { type: Number, default: null },
+    dosageUnit:        { type: String, default: null },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const PrescriptionSchema = new Schema<IPrescription>(
   {
-    patient:    { type: Schema.Types.ObjectId, ref: "Patient",  required: true },
-    doctor:     { type: Schema.Types.ObjectId, ref: "User",     required: true },
-    queueEntry: { type: Schema.Types.ObjectId, ref: "Queue" },
-    rxCode:     { type: String, unique: true, sparse: true },
-    diagnosis:  { type: String, default: "" },
-    problems:   [{ type: String }],
-    medicines:  [PrescriptionMedSchema],
-    notes:      { type: String },
-    referral: {
-      type: new Schema({ needed: Boolean, specialist: String, reason: String }),
-      default: null,
+    patient:        { type: Schema.Types.ObjectId, ref: "Patient",  required: true },
+    doctor:         { type: Schema.Types.ObjectId, ref: "User",     required: true },
+    doctorName:     { type: String, required: true },
+    complaints:     [{ type: String }],
+    problems:       [{ type: String }],   // backward compat
+    investigations: [{ type: String }],
+    diagnoses:      [{ type: String }],
+    medicines:      [PrescriptionMedSchema],
+    notes:          { type: String, default: "" },
+    referral:       {
+      specialist: { type: String },
+      notes:      { type: String },
     },
     labTests: {
-      type: [new Schema({ category: String, name: String }, { _id: false })],
-      default: [],
+      tests: [{ type: String }],
+      notes: { type: String },
     },
-    collectedByPharmacy: { type: Boolean, default: false },
-    collectedAt:         { type: Date },
-    collectedBy:         { type: Schema.Types.ObjectId, ref: "User" },
-    paymentMethod:       { type: String },
+    rxCode: { type: String },
+    date:   { type: String, required: true },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 export default mongoose.model<IPrescription>("Prescription", PrescriptionSchema);
