@@ -31,23 +31,6 @@ export const addToQueue = asyncHandler(async (req: AuthRequest, res: Response) =
   const datePart = today.replace(/-/g, "");                          // "20260506"
   const rxCode   = `${datePart}${String(queueNumber).padStart(3, "0")}`; // "20260506001"
 
-  // Assign a permanent 6-digit code to patient if they don't have one yet
-  const Patient = (await import("../models/Patient")).default;
-  const patient  = await Patient.findById(patientId);
-  if (patient && !patient.permanentCode) {
-    // Generate unique 6-digit code
-    let code = "";
-    let attempts = 0;
-    while (attempts < 20) {
-      code = String(Math.floor(100000 + Math.random() * 900000));
-      const exists = await Patient.findOne({ permanentCode: code });
-      if (!exists) break;
-      attempts++;
-    }
-    patient.permanentCode = code;
-    await patient.save();
-  }
-
   const entry = await Queue.create({
     patient:     patientId,
     queueNumber,
