@@ -13,23 +13,40 @@ export const getQueue = asyncHandler(async (_req: AuthRequest, res: Response) =>
   res.json({ queue });
 });
 
-// POST /api/queue  — add a patient to today's queue (multiple visits allowed)
+// POST /api/queue  — add a patient to a specific doctor's queue
 export const addToQueue = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { patientId, doctorId } = req.body;
   if (!patientId) {
     res.status(400).json({ message: "patientId is required" });
     return;
   }
+  if (!doctorId) {
+    res.status(400).json({ message: "Please select a doctor before adding to queue" });
+    return;
+  }
 
-  const today = todayString();   // YYYY-MM-DD
+  const today = todayString();
 
-  // Queue number = total entries today + 1
-  const count       = await Queue.countDocuments({ date: today });
+  // ── Prevent duplicate: same patient + same doctor today ──────────────────
+  const existingEntry = await Queue.findOne({
+    patient: patientId,
+    doctor:  doctorId,
+    date:    today,
+    status:  { $ne: "done" },
+  });
+  if (existingEntry) {
+    res.status(409).json({
+      message: "This patient is already in this doctor\'s queue today",
+    });
+    return;
+  }
+
+  // Queue number = total entries for this doctor today + 1
+  const count       = await Queue.countDocuments({ date: today, doctor: doctorId });
   const queueNumber = count + 1;
 
-  // Generate rxCode: YYYYMMDD + zero-padded 3-digit queue number
-  const datePart = today.replace(/-/g, "");                          // "20260506"
-  const rxCode   = `${datePart}${String(queueNumber).padStart(3, "0")}`; // "20260506001"
+  const datePart = today.replace(/-/g, "");
+  const rxCode   = `${datePart}${String(queueNumber).padStart(3, "0")}`;
 
   const entry = await Queue.create({
     patient:     patientId,
@@ -37,11 +54,13 @@ export const addToQueue = asyncHandler(async (req: AuthRequest, res: Response) =
     status:      "waiting",
     date:        today,
     rxCode,
-    doctor:      doctorId || undefined,
+    doctor:      doctorId,
   });
 
-  // If no one is currently in-consultation, promote this patient automatically
-  const activeCount = await Queue.countDocuments({ date: today, status: "in-consultation" });
+  // If this doctor has no one in-consultation, promote this patient
+  const activeCount = await Queue.countDocuments({
+    date: today, doctor: doctorId, status: "in-consultation",
+  });
   if (activeCount === 0) {
     entry.status = "in-consultation";
     await entry.save();

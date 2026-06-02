@@ -107,6 +107,9 @@ const displayAge = (patient: any): number => {
 const RegisterTab = () => {
   const { findPatientByPhone, addPatient, addToQueue } = useClinic();
 
+  const [doctors,      setDoctors]      = useState<any[]>([]);
+  const [selectedDoc,  setSelectedDoc]  = useState<any>(null);
+  const [docDropOpen,  setDocDropOpen]  = useState(false);
   const [department, setDepartment]     = useState("");
   // Fee collection modal state
   const [feeModal, setFeeModal]         = useState<{
@@ -140,6 +143,19 @@ const RegisterTab = () => {
     }
   };
 
+  // Fetch available doctors
+  const fetchDoctors = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/staff-list?role=doctor`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const data = await res.json();
+      setDoctors(data.staff || []);
+    } catch {}
+  };
+
+  useState(() => { fetchDoctors(); });
+
   const resetForm = () => {
     setPhone(""); setDepartment(""); setStep("idle");
     setFoundPatient(null); setName(""); setDob(""); setGender(""); setError("");
@@ -161,9 +177,10 @@ const RegisterTab = () => {
           phone: phone.trim(), department, visitType: "OPD",
         } as Omit<Patient, "id">);
       }
-      await addToQueue(patient.id);
+      if (!selectedDoc) { setError("Please select a doctor first."); setLoading(false); return; }
+      await addToQueue(patient.id, selectedDoc.id || selectedDoc._id);
       resetForm();
-      setFeeModal({ open: true, patientName: patient.name, patientId: patient.id, consultFee: 0, mode: "consultation" });
+      setFeeModal({ open: true, patientName: patient.name, patientId: patient.id, consultFee: selectedDoc?.consultationFee || 0, mode: "consultation" });
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally { setLoading(false); }
@@ -173,7 +190,7 @@ const RegisterTab = () => {
   // ── Fee collection modal ────────────────────────────────────────────────
   const FeeCollectionModal = () => {
     const [payMethod, setPayMethod]       = useState("cash");
-    const [consultFee, setConsultFee]     = useState("");
+    const [consultFee, setConsultFee]     = useState(feeModal.consultFee > 0 ? String(feeModal.consultFee) : "");
     const [testSearch, setTestSearch]     = useState("");
     const [selectedTests, setSelectedTests] = useState<{name:string;fee:number;custom:boolean}[]>([]);
     const [customTest, setCustomTest]     = useState("");
@@ -405,21 +422,52 @@ const RegisterTab = () => {
       <h2 className="text-xl font-bold text-foreground mb-1">Register Patient</h2>
       <p className="text-sm text-muted-foreground mb-8">Select department and enter phone number to begin</p>
 
-      {/* Department */}
-      <div className="mb-6">
+      {/* Doctor selector */}
+      <div className="mb-6 relative">
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
-          Department
+          Select Doctor
         </label>
-        <div className="relative">
-          <select
-            value={department} onChange={e => setDepartment(e.target.value)}
-            className="w-full h-12 rounded-xl border border-border bg-card text-foreground px-4 pr-10 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-          >
-            <option value="">Select a department...</option>
-            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-        </div>
+        <button type="button" onClick={() => setDocDropOpen(o => !o)}
+          className="w-full h-12 rounded-xl border border-border bg-card text-foreground px-4 pr-10 text-sm flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-ring">
+          <UserCheck className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className={`flex-1 text-left truncate ${!selectedDoc ? "text-muted-foreground" : ""}`}>
+            {selectedDoc ? `Dr. ${selectedDoc.name}${selectedDoc.specialization ? ` — ${selectedDoc.specialization}` : ""}` : "Select a doctor..."}
+          </span>
+          {selectedDoc && selectedDoc.consultationFee > 0 && (
+            <span className="text-xs font-semibold text-primary shrink-0">₹{selectedDoc.consultationFee}</span>
+          )}
+          <ChevronDown className={`w-4 h-4 text-muted-foreground pointer-events-none transition-transform ${docDropOpen ? "rotate-180" : ""}`} />
+        </button>
+        <AnimatePresence>
+          {docDropOpen && (
+            <motion.div initial={{opacity:0,y:-4}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-4}}
+              className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
+              {doctors.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">No doctors found</div>
+              ) : doctors.map(d => (
+                <button key={d.id||d._id} type="button"
+                  onClick={() => { setSelectedDoc(d); setDocDropOpen(false); setDepartment(d.department||d.specialization||""); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left ${
+                    selectedDoc?.id === (d.id||d._id) ? "bg-primary/5" : ""
+                  }`}>
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                    {d.photoUrl
+                      ? <img src={d.photoUrl} alt={d.name} className="w-full h-full object-cover" />
+                      : <UserCheck className="w-4 h-4 text-primary" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">Dr. {d.name}</p>
+                    <p className="text-xs text-muted-foreground">{d.specialization || d.department || "General"}</p>
+                  </div>
+                  {d.consultationFee > 0 && (
+                    <span className="text-xs font-semibold text-primary shrink-0">₹{d.consultationFee}</span>
+                  )}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {docDropOpen && <div className="fixed inset-0 z-40" onClick={() => setDocDropOpen(false)} />}
       </div>
 
       {/* Phone */}
