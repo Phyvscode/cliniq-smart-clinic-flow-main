@@ -77,7 +77,7 @@ const DEPARTMENTS = [
 ];
 
 type Step = "idle" | "found" | "new";
-type Tab  = "register" | "queue" | "manage";
+type Tab  = "register" | "queue" | "collect" | "manage";
 
 // Calculate age live from a "YYYY-MM-DD" string
 const calculateAge = (dob: string): number => {
@@ -107,9 +107,6 @@ const displayAge = (patient: any): number => {
 const RegisterTab = () => {
   const { findPatientByPhone, addPatient, addToQueue } = useClinic();
 
-  const [doctors,      setDoctors]      = useState<any[]>([]);
-  const [selectedDoc,  setSelectedDoc]  = useState<any>(null);
-  const [docDropOpen,  setDocDropOpen]  = useState(false);
   const [department, setDepartment]     = useState("");
   // Fee collection modal state
   const [feeModal, setFeeModal]         = useState<{
@@ -143,19 +140,6 @@ const RegisterTab = () => {
     }
   };
 
-  // Fetch available doctors
-  const fetchDoctors = async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/auth/staff-list?role=doctor`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      const data = await res.json();
-      setDoctors(data.staff || []);
-    } catch {}
-  };
-
-  useState(() => { fetchDoctors(); });
-
   const resetForm = () => {
     setPhone(""); setDepartment(""); setStep("idle");
     setFoundPatient(null); setName(""); setDob(""); setGender(""); setError("");
@@ -177,10 +161,9 @@ const RegisterTab = () => {
           phone: phone.trim(), department, visitType: "OPD",
         } as Omit<Patient, "id">);
       }
-      if (!selectedDoc) { setError("Please select a doctor first."); setLoading(false); return; }
-      await addToQueue(patient.id, selectedDoc.id || selectedDoc._id);
+      await addToQueue(patient.id, undefined, department);
       resetForm();
-      setFeeModal({ open: true, patientName: patient.name, patientId: patient.id, consultFee: selectedDoc?.consultationFee || 0, mode: "consultation" });
+      setFeeModal({ open: true, patientName: patient.name, patientId: patient.id, consultFee: 0, mode: "consultation" });
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally { setLoading(false); }
@@ -422,52 +405,21 @@ const RegisterTab = () => {
       <h2 className="text-xl font-bold text-foreground mb-1">Register Patient</h2>
       <p className="text-sm text-muted-foreground mb-8">Select department and enter phone number to begin</p>
 
-      {/* Doctor selector */}
-      <div className="mb-6 relative">
+      {/* Department */}
+      <div className="mb-6">
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
-          Select Doctor
+          Department
         </label>
-        <button type="button" onClick={() => setDocDropOpen(o => !o)}
-          className="w-full h-12 rounded-xl border border-border bg-card text-foreground px-4 pr-10 text-sm flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-ring">
-          <UserCheck className="w-4 h-4 text-muted-foreground shrink-0" />
-          <span className={`flex-1 text-left truncate ${!selectedDoc ? "text-muted-foreground" : ""}`}>
-            {selectedDoc ? `Dr. ${selectedDoc.name}${selectedDoc.specialization ? ` — ${selectedDoc.specialization}` : ""}` : "Select a doctor..."}
-          </span>
-          {selectedDoc && selectedDoc.consultationFee > 0 && (
-            <span className="text-xs font-semibold text-primary shrink-0">₹{selectedDoc.consultationFee}</span>
-          )}
-          <ChevronDown className={`w-4 h-4 text-muted-foreground pointer-events-none transition-transform ${docDropOpen ? "rotate-180" : ""}`} />
-        </button>
-        <AnimatePresence>
-          {docDropOpen && (
-            <motion.div initial={{opacity:0,y:-4}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-4}}
-              className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
-              {doctors.length === 0 ? (
-                <div className="px-4 py-6 text-center text-sm text-muted-foreground">No doctors found</div>
-              ) : doctors.map(d => (
-                <button key={d.id||d._id} type="button"
-                  onClick={() => { setSelectedDoc(d); setDocDropOpen(false); setDepartment(d.department||d.specialization||""); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left ${
-                    selectedDoc?.id === (d.id||d._id) ? "bg-primary/5" : ""
-                  }`}>
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-                    {d.photoUrl
-                      ? <img src={d.photoUrl} alt={d.name} className="w-full h-full object-cover" />
-                      : <UserCheck className="w-4 h-4 text-primary" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">Dr. {d.name}</p>
-                    <p className="text-xs text-muted-foreground">{d.specialization || d.department || "General"}</p>
-                  </div>
-                  {d.consultationFee > 0 && (
-                    <span className="text-xs font-semibold text-primary shrink-0">₹{d.consultationFee}</span>
-                  )}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {docDropOpen && <div className="fixed inset-0 z-40" onClick={() => setDocDropOpen(false)} />}
+        <div className="relative">
+          <select
+            value={department} onChange={e => setDepartment(e.target.value)}
+            className="w-full h-12 rounded-xl border border-border bg-card text-foreground px-4 pr-10 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+          >
+            <option value="">Select a department...</option>
+            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        </div>
       </div>
 
       {/* Phone */}
@@ -655,6 +607,204 @@ const QueueTab = () => {
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+
+// ─── Collect Fee Tab ──────────────────────────────────────────────────────────
+const CollectFeeTab = () => {
+  const [phone,          setPhone]          = useState("");
+  const [patient,        setPatient]        = useState<any>(null);
+  const [notFound,       setNotFound]       = useState(false);
+  const [searching,      setSearching]      = useState(false);
+  const [selectedTests,  setSelectedTests]  = useState<{name:string;fee:number}[]>([]);
+  const [testSearch,     setTestSearch]     = useState("");
+  const [customTest,     setCustomTest]     = useState("");
+  const [customFee,      setCustomFee]      = useState("");
+  const [payMethod,      setPayMethod]      = useState("cash");
+  const [saving,         setSaving]         = useState(false);
+  const [success,        setSuccess]        = useState("");
+
+  const searchPatient = async () => {
+    if (phone.trim().length < 7) return;
+    setSearching(true); setPatient(null); setNotFound(false);
+    const found = await apiLookupPhone(phone);
+    if (found) { setPatient(found); }
+    else { setNotFound(true); }
+    setSearching(false);
+  };
+
+  const filtered = COMMON_TESTS.filter(t =>
+    t.name.toLowerCase().includes(testSearch.toLowerCase()) &&
+    !selectedTests.some(s => s.name === t.name)
+  );
+  const total = selectedTests.reduce((s, t) => s + t.fee, 0);
+
+  const handleCollect = async () => {
+    if (!patient) { alert("Please search for a patient first."); return; }
+    if (selectedTests.length === 0) { alert("Please add at least one test."); return; }
+    setSaving(true);
+    try {
+      await apiCreatePayment({
+        patientId: patient.id || patient._id,
+        amount:    total,
+        type:      "test",
+        method:    payMethod,
+        notes:     selectedTests.map(t => `${t.name}: ₹${t.fee}`).join(" | "),
+      });
+      setSuccess(`₹${total} collected from ${patient.name}`);
+      setPhone(""); setPatient(null); setSelectedTests([]); setTestSearch("");
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (e: any) { alert(e.message || "Payment failed"); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="max-w-lg mx-auto">
+      <h2 className="text-xl font-bold text-foreground mb-1">Collect Test / Procedure Fee</h2>
+      <p className="text-sm text-muted-foreground mb-6">For patients returning to pay for lab tests or scans</p>
+
+      {success && (
+        <motion.div initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+          className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 mb-6">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{success}</p>
+        </motion.div>
+      )}
+
+      {/* Patient search */}
+      <div className="mb-6">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Patient Phone Number</label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input type="tel" placeholder="Enter phone number..." value={phone}
+              onChange={e => { setPhone(e.target.value); setPatient(null); setNotFound(false); }}
+              onKeyDown={e => e.key === "Enter" && searchPatient()}
+              className="pl-10 h-12 rounded-xl" />
+          </div>
+          <Button onClick={searchPatient} disabled={searching || phone.trim().length < 7} className="h-12 px-5 rounded-xl gap-2">
+            {searching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Search
+          </Button>
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {patient && (
+          <motion.div key="found" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+            className="mb-6 bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <UserCheck className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">{patient.name}</p>
+              <p className="text-xs text-muted-foreground">{patient.phone} · {patient.gender}</p>
+            </div>
+          </motion.div>
+        )}
+        {notFound && (
+          <motion.div key="notfound" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+            className="mb-6 flex flex-col items-center py-8 text-muted-foreground">
+            <UserX className="w-10 h-10 mb-3 opacity-40" />
+            <p className="font-medium text-foreground">Patient not found</p>
+            <p className="text-sm">No patient registered with that number</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {patient && (
+        <motion.div initial={{opacity:0}} animate={{opacity:1}} className="space-y-5">
+          {/* Selected tests */}
+          {selectedTests.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block">Selected Tests</label>
+              {selectedTests.map((t,i) => (
+                <div key={i} className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2.5">
+                  <span className="flex-1 text-sm font-medium text-foreground">{t.name}</span>
+                  <div className="flex items-center gap-1">
+                    <IndianRupee className="w-3 h-3 text-muted-foreground" />
+                    <input type="number" min="0" value={t.fee}
+                      onChange={e => setSelectedTests(prev => prev.map((x,j) => j===i ? {...x,fee:Number(e.target.value)} : x))}
+                      className="w-20 h-7 text-sm text-right bg-background border border-border rounded-lg px-2 focus:outline-none focus:ring-1 focus:ring-ring" />
+                  </div>
+                  <button onClick={() => setSelectedTests(prev => prev.filter((_,j)=>j!==i))}
+                    className="w-6 h-6 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center justify-between px-1 pt-1">
+                <span className="text-sm text-muted-foreground">Total</span>
+                <span className="text-lg font-bold text-primary">₹{total}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Search tests */}
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Add Tests</label>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Search tests (CBC, X-Ray, ECG...)" value={testSearch}
+                onChange={e => setTestSearch(e.target.value)} className="pl-9 h-10 rounded-xl text-sm" />
+            </div>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {filtered.map(t => (
+                <button key={t.name} onClick={() => setSelectedTests(prev => [...prev, t])}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left">
+                  <span className="text-sm text-foreground">{t.name}</span>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                    <IndianRupee className="w-3 h-3" />{t.fee}
+                    <Plus className="w-3.5 h-3.5 text-primary ml-1" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom test */}
+          <div className="border-t border-border pt-4">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Add Custom Test</label>
+            <div className="flex gap-2">
+              <Input placeholder="Test name" value={customTest}
+                onChange={e => setCustomTest(e.target.value)} className="h-10 rounded-xl text-sm flex-1" />
+              <div className="relative w-28">
+                <IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <Input type="number" placeholder="Fee" value={customFee}
+                  onChange={e => setCustomFee(e.target.value)} className="h-10 rounded-xl text-sm pl-7" />
+              </div>
+              <button onClick={() => {
+                if (!customTest.trim()) return;
+                setSelectedTests(prev => [...prev, { name: customTest.trim(), fee: Number(customFee||0) }]);
+                setCustomTest(""); setCustomFee("");
+              }} className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shrink-0">
+                <Plus className="w-4 h-4 text-primary-foreground" />
+              </button>
+            </div>
+          </div>
+
+          {/* Payment method */}
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Payment Method</label>
+            <div className="flex gap-2">
+              {PAYMENT_METHODS.map(m => (
+                <button key={m.key} onClick={() => setPayMethod(m.key)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 text-sm font-medium transition-all ${
+                    payMethod===m.key ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/30"
+                  }`}>
+                  <m.icon className="w-3.5 h-3.5" />{m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Button onClick={handleCollect} disabled={saving||selectedTests.length===0}
+            className="w-full h-12 rounded-xl text-base font-medium gap-2">
+            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Collect ₹${total}`}
+          </Button>
+        </motion.div>
+      )}
     </div>
   );
 };
@@ -847,6 +997,7 @@ const ReceptionDashboard = () => {
   const tabs = [
     { key: "register" as Tab, label: "Register",                      icon: UserCheck     },
     { key: "queue"    as Tab, label: `Queue (${activeQueue.length})`,  icon: ClipboardList },
+    { key: "collect"  as Tab, label: "Collect Fee",                    icon: IndianRupee   },
     { key: "manage"   as Tab, label: "Manage",                         icon: RefreshCw     },
   ];
 
@@ -905,6 +1056,11 @@ const ReceptionDashboard = () => {
           {activeTab === "queue" && (
             <motion.div key="queue" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <QueueTab />
+            </motion.div>
+          )}
+          {activeTab === "manage" && (
+            <motion.div key="collect" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <CollectFeeTab />
             </motion.div>
           )}
           {activeTab === "manage" && (

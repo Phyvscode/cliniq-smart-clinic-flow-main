@@ -21,7 +21,7 @@ interface ClinicContextType {
   findPatientByPhone: (phone: string) => Patient | undefined;
   refreshPatients: () => Promise<void>;
   // Queue
-  addToQueue: (patientId: string, doctorId?: string) => Promise<QueueEntry>;
+  addToQueue: (patientId: string, doctorId?: string, department?: string) => Promise<QueueEntry>;
   nextPatient: () => Promise<void>;
   removeFromQueue: (queueEntryId: string) => Promise<void>;
   refreshQueue: () => Promise<void>;
@@ -130,8 +130,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return patient;
   }, []);
 
-  const addToQueue = useCallback(async (patientId: string, doctorId?: string) => {
-    const res   = await apiAddToQueue(patientId, doctorId);
+  const addToQueue = useCallback(async (patientId: string, doctorId?: string, department?: string) => {
+    const res   = await apiAddToQueue(patientId, doctorId, department);
     await refreshQueue();
     const entry = res.entry;
     return {

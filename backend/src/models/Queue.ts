@@ -8,7 +8,8 @@ export interface IQueue extends Document {
   status:      QueueStatus;
   date:        string;
   rxCode?:     string;
-  doctor?:     mongoose.Types.ObjectId;
+  department?: string;   // department-based routing
+  doctor?:     mongoose.Types.ObjectId;  // set when doctor starts consultation
 }
 
 const QueueSchema = new Schema<IQueue>(
@@ -18,6 +19,7 @@ const QueueSchema = new Schema<IQueue>(
     status:      { type: String, enum: ["waiting","in-consultation","done"], default: "waiting" },
     date:        { type: String, required: true },
     rxCode:      { type: String },
+    department:  { type: String },
     doctor:      { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }

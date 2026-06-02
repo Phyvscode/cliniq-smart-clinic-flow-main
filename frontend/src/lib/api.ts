@@ -44,8 +44,8 @@ export const apiGetPatientPrescriptions = (id: string) =>
 // ── Queue ─────────────────────────────────────────────────────────────────────
 export const apiGetQueue = () => request("/queue");
 
-export const apiAddToQueue = (patientId: string, doctorId?: string) =>
-  request("/queue", { method: "POST", body: JSON.stringify({ patientId, doctorId }) });
+export const apiAddToQueue = (patientId: string, doctorId?: string, department?: string) =>
+  request("/queue", { method: "POST", body: JSON.stringify({ patientId, doctorId, department }) });
 
 export const apiNextPatient = () =>
   request("/queue/next", { method: "POST" });
