@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Phone, UserCheck, CheckCircle2, ChevronDown,
   Trash2, RefreshCw, Search, UserX, ClipboardList, LogOut, KeyRound,
+  IndianRupee, Banknote, Smartphone, CreditCard, Plus, X, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,48 @@ const apiLookupPhone = async (phone: string) => {
 };
 import { Patient } from "@/data/mockData";
 import { apiUpdatePatient } from "@/lib/api";
+
+const apiCreatePayment = async (body: object) => {
+  const res = await fetch(`${BASE_URL}/payments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Payment failed");
+  return data;
+};
+
+const COMMON_TESTS = [
+  { name: "Complete Blood Count (CBC)", fee: 300 },
+  { name: "Blood Sugar Fasting",        fee: 80  },
+  { name: "Blood Sugar PP",             fee: 80  },
+  { name: "HbA1c",                      fee: 400 },
+  { name: "Lipid Profile",              fee: 500 },
+  { name: "LFT",                        fee: 600 },
+  { name: "KFT",                        fee: 500 },
+  { name: "Thyroid Profile (T3/T4/TSH)",fee: 700 },
+  { name: "Urine Routine",              fee: 100 },
+  { name: "X-Ray Chest",                fee: 300 },
+  { name: "X-Ray",                      fee: 250 },
+  { name: "ECG",                        fee: 200 },
+  { name: "USG Abdomen",                fee: 800 },
+  { name: "CT Scan",                    fee: 3000 },
+  { name: "MRI",                        fee: 5000 },
+  { name: "Dengue Test",                fee: 600 },
+  { name: "Malaria Test",               fee: 150 },
+  { name: "Typhoid (Widal)",            fee: 200 },
+  { name: "Vitamin D",                  fee: 900 },
+  { name: "Vitamin B12",                fee: 700 },
+  { name: "CRP",                        fee: 400 },
+  { name: "ESR",                        fee: 100 },
+];
+
+const PAYMENT_METHODS = [
+  { key: "cash",      label: "Cash",      icon: Banknote   },
+  { key: "upi",       label: "UPI",       icon: Smartphone },
+  { key: "card",      label: "Card",      icon: CreditCard },
+];
 
 const DEPARTMENTS = [
   "General Medicine", "Pediatrics", "Gynecology", "Orthopedics",
@@ -65,6 +108,11 @@ const RegisterTab = () => {
   const { findPatientByPhone, addPatient, addToQueue } = useClinic();
 
   const [department, setDepartment]     = useState("");
+  // Fee collection modal state
+  const [feeModal, setFeeModal]         = useState<{
+    open: boolean; patientName: string; patientId: string;
+    consultFee: number; mode: "consultation" | "test";
+  }>({ open: false, patientName: "", patientId: "", consultFee: 0, mode: "consultation" });
   const [phone, setPhone]               = useState("");
   const [step, setStep]                 = useState<Step>("idle");
   const [foundPatient, setFoundPatient] = useState<Patient | null>(null);
@@ -114,11 +162,224 @@ const RegisterTab = () => {
         } as Omit<Patient, "id">);
       }
       await addToQueue(patient.id);
-      setConfirmation(`${patient.name} added to queue — ${department}`);
       resetForm();
+      setFeeModal({ open: true, patientName: patient.name, patientId: patient.id, consultFee: 0, mode: "consultation" });
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally { setLoading(false); }
+  };
+
+
+  // ── Fee collection modal ────────────────────────────────────────────────
+  const FeeCollectionModal = () => {
+    const [payMethod, setPayMethod]       = useState("cash");
+    const [consultFee, setConsultFee]     = useState("");
+    const [testSearch, setTestSearch]     = useState("");
+    const [selectedTests, setSelectedTests] = useState<{name:string;fee:number;custom:boolean}[]>([]);
+    const [customTest, setCustomTest]     = useState("");
+    const [customFee, setCustomFee]       = useState("");
+    const [saving, setSaving]             = useState(false);
+    const [done, setDone]                 = useState(false);
+
+    const mode = feeModal.mode;
+    const filtered = COMMON_TESTS.filter(t =>
+      t.name.toLowerCase().includes(testSearch.toLowerCase()) &&
+      !selectedTests.some(s => s.name === t.name)
+    );
+    const totalFee = mode === "consultation"
+      ? Number(consultFee || 0)
+      : selectedTests.reduce((s, t) => s + t.fee, 0);
+
+    const addTest = (t: {name:string;fee:number}) =>
+      setSelectedTests(prev => [...prev, { ...t, custom: false }]);
+    const addCustomTest = () => {
+      if (!customTest.trim()) return;
+      setSelectedTests(prev => [...prev, { name: customTest.trim(), fee: Number(customFee||0), custom: true }]);
+      setCustomTest(""); setCustomFee("");
+    };
+
+    const handleCollect = async () => {
+      if (totalFee <= 0) { alert("Please enter a fee amount."); return; }
+      setSaving(true);
+      try {
+        await apiCreatePayment({
+          patientId: feeModal.patientId,
+          amount:    totalFee,
+          type:      mode === "consultation" ? "consultation" : "test",
+          method:    payMethod,
+          notes:     mode === "test"
+            ? selectedTests.map(t => `${t.name}: ₹${t.fee}`).join(" | ")
+            : `Consultation: ₹${totalFee}`,
+        });
+        setDone(true);
+        setTimeout(() => {
+          setFeeModal(f => ({ ...f, open: false }));
+          setConfirmation(`${feeModal.patientName} added to queue — fee collected ✓`);
+        }, 1500);
+      } catch (e: any) { alert(e.message || "Payment failed"); }
+      finally { setSaving(false); }
+    };
+
+    if (!feeModal.open) return null;
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <motion.div initial={{opacity:0,scale:.95}} animate={{opacity:1,scale:1}}
+          className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+            <div>
+              <h2 className="font-semibold text-foreground">Collect Payment</h2>
+              <p className="text-xs text-muted-foreground">{feeModal.patientName}</p>
+            </div>
+            <button onClick={() => { setFeeModal(f=>({...f,open:false})); setConfirmation(`${feeModal.patientName} added to queue`); }}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {done ? (
+            <div className="flex flex-col items-center py-12 px-5">
+              <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-3">
+                <Check className="w-7 h-7 text-emerald-600" />
+              </div>
+              <p className="font-semibold text-foreground">Payment Recorded!</p>
+              <p className="text-sm text-muted-foreground mt-1">₹{totalFee} collected</p>
+            </div>
+          ) : (
+            <div className="overflow-y-auto flex-1 p-5 space-y-5">
+              {/* Mode selector */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: "consultation", label: "Consultation Fee", desc: "Doctor visit fee" },
+                  { key: "test",         label: "Test / Procedure",  desc: "Lab tests, scans, etc." },
+                ].map(m => (
+                  <button key={m.key} onClick={() => setFeeModal(f=>({...f,mode:m.key as any}))}
+                    className={`p-3 rounded-xl border-2 text-left transition-all ${
+                      mode===m.key ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                    }`}>
+                    <p className={`text-sm font-semibold ${mode===m.key?"text-primary":"text-foreground"}`}>{m.label}</p>
+                    <p className="text-xs text-muted-foreground">{m.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Consultation fee */}
+              {mode === "consultation" && (
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                    Consultation Fee (₹)
+                  </label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input type="number" min="0" placeholder="Enter fee amount"
+                      value={consultFee} onChange={e => setConsultFee(e.target.value)}
+                      className="pl-9 h-11 rounded-xl" />
+                  </div>
+                </div>
+              )}
+
+              {/* Test selection */}
+              {mode === "test" && (
+                <div className="space-y-3">
+                  {/* Selected tests */}
+                  {selectedTests.length > 0 && (
+                    <div className="space-y-2">
+                      {selectedTests.map((t,i) => (
+                        <div key={i} className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
+                          <span className="flex-1 text-sm font-medium text-foreground">{t.name}</span>
+                          <div className="flex items-center gap-1">
+                            <IndianRupee className="w-3 h-3 text-muted-foreground" />
+                            <input type="number" min="0" value={t.fee}
+                              onChange={e => setSelectedTests(prev => prev.map((x,j) => j===i ? {...x,fee:Number(e.target.value)} : x))}
+                              className="w-20 h-7 text-sm text-right bg-background border border-border rounded-lg px-2 focus:outline-none focus:ring-1 focus:ring-ring" />
+                          </div>
+                          <button onClick={() => setSelectedTests(prev => prev.filter((_,j)=>j!==i))}
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs text-muted-foreground">Total</span>
+                        <span className="text-base font-bold text-primary">₹{selectedTests.reduce((s,t)=>s+t.fee,0)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Search common tests */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input placeholder="Search tests..." value={testSearch}
+                      onChange={e => setTestSearch(e.target.value)}
+                      className="pl-9 h-10 rounded-xl text-sm" />
+                  </div>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {filtered.slice(0,8).map(t => (
+                      <button key={t.name} onClick={() => addTest(t)}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-muted transition-colors text-left">
+                        <span className="text-sm text-foreground">{t.name}</span>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <IndianRupee className="w-3 h-3" />{t.fee}
+                          <Plus className="w-3.5 h-3.5 text-primary ml-1" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom test */}
+                  <div className="border-t border-border pt-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Add Custom</p>
+                    <div className="flex gap-2">
+                      <Input placeholder="Test name" value={customTest}
+                        onChange={e => setCustomTest(e.target.value)} className="h-9 rounded-xl text-sm flex-1" />
+                      <div className="relative w-24">
+                        <IndianRupee className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                        <Input type="number" placeholder="Fee" value={customFee}
+                          onChange={e => setCustomFee(e.target.value)} className="h-9 rounded-xl text-sm pl-6" />
+                      </div>
+                      <button onClick={addCustomTest}
+                        className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
+                        <Plus className="w-4 h-4 text-primary-foreground" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment method */}
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
+                  Payment Method
+                </label>
+                <div className="flex gap-2">
+                  {PAYMENT_METHODS.map(m => (
+                    <button key={m.key} onClick={() => setPayMethod(m.key)}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 text-sm font-medium transition-all ${
+                        payMethod===m.key ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/30"
+                      }`}>
+                      <m.icon className="w-3.5 h-3.5" />{m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!done && (
+            <div className="px-5 pb-5 pt-3 border-t border-border shrink-0 flex gap-2">
+              <Button variant="outline" className="flex-1 h-11 rounded-xl"
+                onClick={() => { setFeeModal(f=>({...f,open:false})); setConfirmation(`${feeModal.patientName} added to queue`); }}>
+                Skip
+              </Button>
+              <Button className="flex-1 h-11 rounded-xl" disabled={saving||totalFee<=0} onClick={handleCollect}>
+                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Collect ₹${totalFee}`}
+              </Button>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    );
   };
 
   return (
@@ -257,6 +518,7 @@ const RegisterTab = () => {
           </Button>
         </motion.div>
       )}
+      {feeModal.open && <FeeCollectionModal />}
     </div>
   );
 };
