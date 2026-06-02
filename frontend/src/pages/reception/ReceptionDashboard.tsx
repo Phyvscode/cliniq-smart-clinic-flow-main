@@ -29,6 +29,17 @@ const apiLookupPhone = async (phone: string) => {
 import { Patient } from "@/data/mockData";
 import { apiUpdatePatient } from "@/lib/api";
 
+const apiAddToQueue = async (patientId: string, department: string) => {
+  const res = await fetch(`${BASE_URL}/queue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ patientId, department }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to add to queue");
+  return data;
+};
+
 const apiCreatePayment = async (body: object) => {
   const res = await fetch(`${BASE_URL}/payments`, {
     method: "POST",
@@ -105,7 +116,7 @@ const displayAge = (patient: any): number => {
 
 // ─── Register Tab ─────────────────────────────────────────────────────────────
 const RegisterTab = () => {
-  const { findPatientByPhone, addPatient, addToQueue } = useClinic();
+  const { findPatientByPhone, addPatient, refreshQueue } = useClinic();
 
   const [department, setDepartment]     = useState("");
   const [noDoctorAlert, setNoDoctorAlert] = useState(false);
@@ -179,7 +190,8 @@ const RegisterTab = () => {
         }
       } catch {}
 
-      await addToQueue(patient.id, undefined, savedDepartment);
+      await apiAddToQueue(patient.id, savedDepartment);
+      await refreshQueue();
       resetForm();
       setFeeModal({ open: true, patientName: patient.name, patientId: patient.id, consultFee: 0, mode: "consultation" });
     } catch (err: any) {
