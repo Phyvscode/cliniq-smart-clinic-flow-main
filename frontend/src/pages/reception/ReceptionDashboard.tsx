@@ -108,6 +108,7 @@ const RegisterTab = () => {
   const { findPatientByPhone, addPatient, addToQueue } = useClinic();
 
   const [department, setDepartment]     = useState("");
+  const [noDoctorAlert, setNoDoctorAlert] = useState(false);
   // Fee collection modal state
   const [feeModal, setFeeModal]         = useState<{
     open: boolean; patientName: string; patientId: string;
@@ -148,6 +149,7 @@ const RegisterTab = () => {
   const handleSubmit = async () => {
     if (!department) { setError("Please select a department."); return; }
     setError(""); setLoading(true);
+    const savedDepartment = department; // save before resetForm clears it
     try {
       let patient = foundPatient;
       if (!patient) {
@@ -158,10 +160,26 @@ const RegisterTab = () => {
         patient = await addPatient({
           name: name.trim(), dateOfBirth: dob,
           age: calculateAge(dob), gender,
-          phone: phone.trim(), department, visitType: "OPD",
+          phone: phone.trim(), department: savedDepartment, visitType: "OPD",
         } as Omit<Patient, "id">);
       }
-      await addToQueue(patient.id, undefined, department);
+
+      // Check if department has any doctors
+      try {
+        const staffRes = await fetch(`${BASE_URL}/auth/staff-list?role=doctor`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        const staffData = await staffRes.json();
+        const deptDoctors = (staffData.staff || []).filter(
+          (d: any) => d.department === savedDepartment || d.specialization === savedDepartment
+        );
+        if (deptDoctors.length === 0) {
+          setNoDoctorAlert(true);
+          setLoading(false); return;
+        }
+      } catch {}
+
+      await addToQueue(patient.id, undefined, savedDepartment);
       resetForm();
       setFeeModal({ open: true, patientName: patient.name, patientId: patient.id, consultFee: 0, mode: "consultation" });
     } catch (err: any) {
@@ -519,6 +537,26 @@ const RegisterTab = () => {
         </motion.div>
       )}
       {feeModal.open && <FeeCollectionModal />}
+
+      {/* No doctor alert */}
+      {noDoctorAlert && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <motion.div initial={{opacity:0,scale:.95}} animate={{opacity:1,scale:1}}
+            className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
+            <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
+              <UserX className="w-7 h-7 text-amber-500" />
+            </div>
+            <h3 className="font-semibold text-foreground text-lg mb-2">No Doctors Available</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              There are no doctors registered in the <strong>{department}</strong> department.
+              Please ask the admin to add doctors to this department first.
+            </p>
+            <Button className="w-full h-11 rounded-xl" onClick={() => setNoDoctorAlert(false)}>
+              OK
+            </Button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
@@ -996,8 +1034,8 @@ const ReceptionDashboard = () => {
 
   const tabs = [
     { key: "register" as Tab, label: "Register",                      icon: UserCheck     },
-    { key: "queue"    as Tab, label: `Queue (${activeQueue.length})`,  icon: ClipboardList },
     { key: "collect"  as Tab, label: "Collect Fee",                    icon: IndianRupee   },
+    { key: "queue"    as Tab, label: `Queue (${activeQueue.length})`,  icon: ClipboardList },
     { key: "manage"   as Tab, label: "Manage",                         icon: RefreshCw     },
   ];
 
@@ -1058,7 +1096,7 @@ const ReceptionDashboard = () => {
               <QueueTab />
             </motion.div>
           )}
-          {activeTab === "manage" && (
+          {activeTab === "collect" && (
             <motion.div key="collect" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <CollectFeeTab />
             </motion.div>
