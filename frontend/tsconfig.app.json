@@ -31,5 +31,5 @@
   },
   "include": [
     "src"
-  ]
+, "../backend/src/data/medicineSeeds.ts", "../backend/data"  ]
 }

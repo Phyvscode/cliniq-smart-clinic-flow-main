@@ -336,7 +336,7 @@ const MedicineCard = ({ med, onRemove, onUpdate }: MedCardProps) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 const DoctorPrescription = () => {
   const navigate = useNavigate();
-  const { getCurrentPatient, refreshQueue, refreshMedicines, medicines: ctxMedicines, queue } = useClinic();
+  const { getCurrentPatient, refreshQueue, refreshMedicines, medicines: ctxMedicines } = useClinic();
   const current = getCurrentPatient();
 
   const [medicines,     setMedicines]     = useState<PrescriptionMedicine[]>([]);
@@ -422,7 +422,7 @@ const DoctorPrescription = () => {
       const problems       = parsed.problems       || [];
       const investigations = parsed.investigations || [];
       const diagnoses      = parsed.diagnoses      || [];
-      const queueEntry     = queue.find(q => q.patientId === current.patient.id && q.status !== "done");
+      const queueEntry     = current.queueEntry;
 
       const finalSpecialist = referralSpecialist || customSpecialist.trim();
 
