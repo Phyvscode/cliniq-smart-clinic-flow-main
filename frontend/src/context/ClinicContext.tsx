@@ -111,11 +111,15 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     const token = localStorage.getItem("cliniq_token");
-    if (token) {
-      refreshPatients();
-      refreshQueue();
-      refreshMedicines();
-    }
+    if (!token) return;
+    refreshPatients();
+    refreshQueue();
+    refreshMedicines();
+    // Keep queue in sync every 30s (catches changes from other logins)
+    const interval = setInterval(() => {
+      if (localStorage.getItem("cliniq_token")) refreshQueue();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const findPatientByPhone = useCallback(

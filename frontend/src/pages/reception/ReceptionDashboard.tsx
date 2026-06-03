@@ -123,7 +123,7 @@ const displayAge = (p: any) =>
   p?.dateOfBirth ? calculateAge(toDateInput(p.dateOfBirth)) : (p?.age ?? 0);
 
 // ─── Register Tab (consultation only) ────────────────────────────────────────
-const RegisterTab = () => {
+const RegisterTab = ({ onSuccess }: { onSuccess?: () => void }) => {
   const { addPatient, refreshQueue } = useClinic();
 
   const [department,    setDepartment]    = useState("");
@@ -187,8 +187,9 @@ const RegisterTab = () => {
       await apiAddToQueue(patient.id, savedDept);
       await refreshQueue();
       const patientName = patient.name;
-      resetForm();
       setConfirmation(`${patientName} added to ${savedDept} queue`);
+      // Small delay so user sees the confirmation, then full remount for clean state
+      setTimeout(() => onSuccess?.(), 2000);
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally { setLoading(false); }
@@ -725,6 +726,7 @@ const ReceptionDashboard = () => {
   const navigate  = useNavigate();
   const [activeTab,      setActiveTab]      = useState<Tab>("register");
   const [showChangePin,  setShowChangePin]  = useState(false);
+  const [registerKey,    setRegisterKey]    = useState(0); // increment to force remount
 
   const handleLogout = () => {
     localStorage.removeItem("cliniq_token");
@@ -781,7 +783,7 @@ const ReceptionDashboard = () => {
         <AnimatePresence mode="wait">
           {activeTab === "register" && (
             <motion.div key="register" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
-              <RegisterTab />
+              <RegisterTab key={registerKey} onSuccess={() => setRegisterKey(k => k + 1)} />
             </motion.div>
           )}
           {activeTab === "tests" && (

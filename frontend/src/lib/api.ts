@@ -2,19 +2,40 @@ const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:5
 
 const getToken = () => localStorage.getItem("cliniq_token");
 
-const request = async (path: string, options: RequestInit = {}) => {
+const logout = () => {
+  localStorage.removeItem("cliniq_token");
+  localStorage.removeItem("cliniq_user");
+  window.location.href = "/";
+};
+
+const request = async (path: string, options: RequestInit = {}, timeoutMs = 15000) => {
   const token = getToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Something went wrong");
-  return data;
+
+  // Abort after timeoutMs — prevents hanging when Render is waking up
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+    clearTimeout(timer);
+    const data = await res.json();
+    // Token expired or invalid — kick back to login
+    if (res.status === 401) { logout(); throw new Error("Session expired. Please log in again."); }
+    if (!res.ok) throw new Error(data.message || "Something went wrong");
+    return data;
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err.name === "AbortError") throw new Error("Server is taking too long. Please try again.");
+    throw err;
+  }
 };
 
 // ── Auth ──────────────────────────────────────────────────────────────────────

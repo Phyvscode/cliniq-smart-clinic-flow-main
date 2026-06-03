@@ -163,7 +163,7 @@ const PharmacyAuthPage = () => {
               </label>
               <div className="flex gap-2 justify-between" onPaste={handlePaste}>
                 {pin.map((digit, i) => (
-                  <input key={i} id={`phpin-${i}`} type="password" inputMode="numeric"
+                  <input key={i} id={`phpin-${i}`} type="password" autoComplete="off" spellCheck={false} inputMode="numeric"
                     maxLength={1} value={digit}
                     onChange={e => handlePinChange(i, e.target.value)}
                     onKeyDown={e => handleKeyDown(i, e)}
