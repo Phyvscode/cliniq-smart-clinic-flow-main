@@ -1,16 +1,19 @@
 import { Router } from "express";
-import {
-  getMedicines, createMedicine, updateMedicine, deleteMedicine,
-} from "../controllers/medicineController";
 import { protect, requireRole } from "../middleware/auth";
+import {
+  getMedicines,
+  createMedicine,
+  updateMedicine,
+  deleteMedicine,
+  seedMedicines,
+} from "../controllers/medicineController";
 
 const router = Router();
 
-router.use(protect);
-
-router.get("/",       getMedicines);                         // all roles
-router.post("/",      requireRole("admin"), createMedicine);
-router.patch("/:id",  requireRole("admin"), updateMedicine);
-router.delete("/:id", requireRole("admin"), deleteMedicine);
+router.get   ("/",        protect, getMedicines);
+router.post  ("/seed",    protect, requireRole("admin"), seedMedicines);
+router.post  ("/",        protect, requireRole("admin"), createMedicine);
+router.patch ("/:id",     protect, requireRole("admin"), updateMedicine);
+router.delete("/:id",     protect, requireRole("admin"), deleteMedicine);
 
 export default router;

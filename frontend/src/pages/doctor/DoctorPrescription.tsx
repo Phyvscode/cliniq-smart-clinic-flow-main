@@ -58,6 +58,26 @@ const FREQUENCY_INTERVALS: { key: "4h" | "6h" | "8h" | "12h"; label: string }[] 
 ];
 
 type DoseSlot = "morning" | "afternoon" | "evening" | "night";
+
+const MEDICINE_CATEGORIES = [
+  { key: "Fever & Pain",  emoji: "🌡️" },
+  { key: "Antibiotics",   emoji: "💊" },
+  { key: "Allergy & Cold",emoji: "🤧" },
+  { key: "Gastric",       emoji: "🫁" },
+  { key: "Vitamins",      emoji: "💪" },
+  { key: "Diabetes",      emoji: "🩸" },
+  { key: "BP & Cardiac",  emoji: "❤️" },
+  { key: "Injections",    emoji: "💉" },
+  { key: "Dermatology",   emoji: "🧴" },
+  { key: "ENT",           emoji: "👂" },
+  { key: "Ophthalmology", emoji: "👁️" },
+  { key: "Pulmonology",   emoji: "🫀" },
+  { key: "Pediatric",     emoji: "👶" },
+  { key: "Gynecology",    emoji: "🌸" },
+  { key: "Psychiatry",    emoji: "🧠" },
+];
+
+
 const DOSE_SLOTS: DoseSlot[] = ["morning", "afternoon", "evening", "night"];
 
 // ─── Specialist types for referral ────────────────────────────────────────────
@@ -338,6 +358,7 @@ const DoctorPrescription = () => {
   const [labNotes,       setLabNotes]       = useState("");
   const [labSearch,      setLabSearch]      = useState("");
   const [expandedCats,   setExpandedCats]   = useState<string[]>(["Blood Tests"]);
+  const [selectedCat,    setSelectedCat]    = useState<string>("");
 
   // Save/send state
   const [savedRxId,    setSavedRxId]    = useState("");
@@ -349,11 +370,12 @@ const DoctorPrescription = () => {
 
   useEffect(() => { refreshMedicines(); }, []);
 
-  const filteredMeds = useMemo(() =>
-    !searchQuery ? ctxMedicines
-      : ctxMedicines.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase())),
-    [searchQuery, ctxMedicines]
-  );
+  const filteredMeds = useMemo(() => {
+    let meds = ctxMedicines;
+    if (selectedCat) meds = meds.filter((m: any) => m.category === selectedCat);
+    if (searchQuery)  meds = meds.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    return meds;
+  }, [searchQuery, selectedCat, ctxMedicines]);
 
   const filteredSpecialists = SPECIALISTS.filter(s =>
     s.toLowerCase().includes(specialistSearch.toLowerCase())
@@ -589,6 +611,21 @@ const DoctorPrescription = () => {
                     onChange={e => setSearchQuery(e.target.value)}
                     className="pl-10 rounded-xl" autoFocus />
                 </div>
+                {/* Category quick-filter */}
+                <div className="flex gap-1.5 flex-wrap mb-3">
+                  <button onClick={() => setSelectedCat("")}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                      !selectedCat ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"
+                    }`}>All</button>
+                  {MEDICINE_CATEGORIES.map(cat => (
+                    <button key={cat.key} onClick={() => setSelectedCat(cat.key === selectedCat ? "" : cat.key)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                        selectedCat === cat.key ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"
+                      }`}>
+                      {cat.emoji} {cat.key}
+                    </button>
+                  ))}
+                </div>
                 <div className="max-h-52 overflow-y-auto space-y-1">
                   {filteredMeds.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
@@ -604,7 +641,10 @@ const DoctorPrescription = () => {
                         }`}>
                         <span>
                           <span className="font-medium text-foreground">{med.name}</span>
-                          <span className="text-xs text-muted-foreground ml-2">{med.type}</span>
+                          <span className="text-xs text-muted-foreground ml-1.5">{med.type}</span>
+                          {(med as any).category && (med as any).category !== "General" && (
+                            <span className="text-xs text-primary/70 ml-1.5 font-medium">{(med as any).category}</span>
+                          )}
                         </span>
                         {added && <Check className="w-3.5 h-3.5 text-primary" />}
                       </button>
