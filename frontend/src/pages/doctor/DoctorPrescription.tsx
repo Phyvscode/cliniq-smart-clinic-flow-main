@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, Plus, X, Search, Check, Pill,
+  ArrowLeft, Plus, X, Search, Stethoscope, Check, Pill,
   Send, Download, RefreshCw, MessageCircle,
   ChevronDown, ChevronUp, Clock, FileText,
   UserCheck, FlaskConical, Printer,
@@ -353,6 +353,24 @@ const DoctorPrescription = () => {
 
   // Lab tests state
   const [labEnabled,     setLabEnabled]     = useState(false);
+
+  // ── Inline diagnosis state (replaces DoctorDiagnosis page) ──
+  const [selectedComplaints,   setSelectedComplaints]   = useState<string[]>([]);
+  const [selectedInvestigations, setSelectedInvestigations] = useState<string[]>([]);
+  const [selectedDiagnoses,    setSelectedDiagnoses]    = useState<string[]>([]);
+  const [diagSearch,           setDiagSearch]           = useState("");
+  const [subModal,             setSubModal]             = useState<string|null>(null);
+
+  // Pre-fill from sessionStorage if coming from diagnosis page
+  useState(() => {
+    const data = sessionStorage.getItem("currentDiagnosis");
+    if (data) {
+      const p = JSON.parse(data);
+      if (p.problems?.length)       setSelectedComplaints(p.problems);
+      if (p.investigations?.length) setSelectedInvestigations(p.investigations);
+      if (p.diagnoses?.length)      setSelectedDiagnoses(p.diagnoses);
+    }
+  });
   const [selectedTests,  setSelectedTests]  = useState<string[]>([]);
   const [customTest,     setCustomTest]     = useState("");
   const [labNotes,       setLabNotes]       = useState("");
@@ -417,11 +435,9 @@ const DoctorPrescription = () => {
     if (!current || medicines.length === 0) return;
     setSaving(true);
     try {
-      const diagnosisData  = sessionStorage.getItem("currentDiagnosis");
-      const parsed         = diagnosisData ? JSON.parse(diagnosisData) : {};
-      const problems       = parsed.problems       || [];
-      const investigations = parsed.investigations || [];
-      const diagnoses      = parsed.diagnoses      || [];
+      const problems       = selectedComplaints;
+      const investigations = selectedInvestigations;
+      const diagnoses      = selectedDiagnoses;
       const queueEntry     = current.queueEntry;
 
       const finalSpecialist = referralSpecialist || customSpecialist.trim();
@@ -473,6 +489,8 @@ const DoctorPrescription = () => {
     try {
       const res = await apiSendPrescription(savedRxId);
       setSendResult({ success: true, message: res.message, pdfUrl: res.pdfUrl });
+      // Mark queue done when PDF is generated/sent
+      await refreshQueue();
     } catch (err: any) {
       setSendResult({ success: false, message: err.message });
     } finally { setSending(false); }
@@ -913,6 +931,83 @@ const DoctorPrescription = () => {
               </AnimatePresence>
             </div>
 
+
+            {/* ── Clinical Details: Complaints, Investigations & Diagnosis ── */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <Stethoscope className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">Clinical Details</p>
+                    <p className="text-xs text-muted-foreground">Complaints, investigations &amp; diagnosis — printed on PDF</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 space-y-5">
+                {/* Complaints */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Patient Complaints</p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {selectedComplaints.map(comp => (
+                      <span key={comp} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-background border border-border text-foreground">
+                        {comp}<button onClick={() => setSelectedComplaints(prev => prev.filter(x => x !== comp))}><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Fever","Cold","Cough","Headache","Vomiting","Loose Motions","Weakness","Chest Pain","Breathlessness","Allergy","Sore Throat","Acidity","Nausea","Dizziness"].map(s => (
+                      <button key={s} onClick={() => setSelectedComplaints(prev => prev.includes(s) ? prev.filter(x=>x!==s) : [...prev,s])}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedComplaints.includes(s) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>{s}</button>
+                    ))}
+                    {["Body Ache","Pain"].map(s => (
+                      <button key={s} onClick={() => setSubModal(s)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedComplaints.some(comp => comp === s || comp.startsWith(s+" - ")) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>{s} ›</button>
+                    ))}
+                  </div>
+                </div>
+                {/* Investigations */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Investigations Advised</p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {selectedInvestigations.map(t => (
+                      <span key={t} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                        {t}<button onClick={() => setSelectedInvestigations(prev => prev.filter(x => x !== t))}><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["CBC","LFT","KFT","Lipid Profile","Blood Sugar (Fasting)","Blood Sugar (PP)","HbA1c","Urine Routine","X-Ray Chest","X-Ray","CT Scan","MRI","ECG","Echo","Thyroid Profile","Dengue Test","Malaria Test","Typhoid (Widal)","USG Abdomen","CRP","ESR","Vitamin D","Vitamin B12"].map(t => (
+                      <button key={t} onClick={() => setSelectedInvestigations(prev => prev.includes(t) ? prev.filter(x=>x!==t) : [...prev,t])}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedInvestigations.includes(t) ? "bg-blue-500 text-white border-blue-500" : "border-border text-muted-foreground hover:border-blue-400/40"}`}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+                {/* Diagnosis */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Diagnosis</p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {selectedDiagnoses.map(d => (
+                      <span key={d} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        {d}<button onClick={() => setSelectedDiagnoses(prev => prev.filter(x => x !== d))}><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {["Viral Fever","Upper Respiratory Tract Infection","Lower Respiratory Tract Infection","Gastritis","Hypertension","Type 2 Diabetes","Migraine","Viral Flu","Allergic Rhinitis","Food Poisoning","Typhoid","Tonsillitis","Acute Bronchitis","Acid Peptic Disease","Anemia","Urinary Tract Infection","Dengue Fever","Hypothyroidism","Sinusitis","Asthma"].map(d => (
+                      <button key={d} onClick={() => setSelectedDiagnoses(prev => prev.includes(d) ? prev.filter(x=>x!==d) : [...prev,d])}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedDiagnoses.includes(d) ? "bg-emerald-500 text-white border-emerald-500" : "border-border text-muted-foreground hover:border-emerald-400/40"}`}>{d}</button>
+                    ))}
+                  </div>
+                  <Input placeholder="Type custom diagnosis and press Enter..."
+                    value={diagSearch} onChange={e => setDiagSearch(e.target.value)}
+                    onKeyDown={e => { if (e.key==="Enter" && diagSearch.trim()) { setSelectedDiagnoses(prev => prev.includes(diagSearch.trim()) ? prev : [...prev, diagSearch.trim()]); setDiagSearch(""); }}}
+                    className="h-9 rounded-xl text-sm" />
+                </div>
+              </div>
+            </div>
+
             {/* ── Doctor's Notes ── */}
             <div className="bg-card border border-border rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-1">
@@ -942,6 +1037,38 @@ const DoctorPrescription = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Sub-area modal for Body Ache / Pain */}
+      <AnimatePresence>
+        {subModal && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{opacity:0,scale:.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:.95}}
+              className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-semibold text-foreground">{subModal}</h3>
+                <button onClick={() => setSubModal(null)}><X className="w-4 h-4 text-muted-foreground" /></button>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">Select area</p>
+              <div className="flex flex-wrap gap-2">
+                {(subModal === "Pain"
+                  ? ["Head","Chest","Abdomen","Back","Leg","Knee","Shoulder","Neck","Joint","Ear","Tooth"]
+                  : ["Head","Chest","Abdomen","Back","Leg","Knee","Shoulder","Neck","Joint"]
+                ).map(area => (
+                  <button key={area}
+                    onClick={() => { setSelectedComplaints(prev => [...prev.filter(x => !x.startsWith(subModal!)), `${subModal} - ${area}`]); setSubModal(null); }}
+                    className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+                    {area}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => { setSelectedComplaints(prev => prev.includes(subModal!) ? prev : [...prev, subModal!]); setSubModal(null); }}
+                className="mt-4 w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Add "{subModal}" without specifying area
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
