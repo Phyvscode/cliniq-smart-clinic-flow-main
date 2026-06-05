@@ -1,17 +1,19 @@
 import { Response } from "express";
 import Queue from "../models/Queue";
+import Staff from "../models/Staff";
 import { AuthRequest } from "../middleware/auth";
 import { asyncHandler } from "../middleware/errorHandler";
 import { todayString } from "../utils/generateToken";
 
-// GET /api/queue — today's entries for the logged-in doctor's department
+// GET /api/queue — today's ACTIVE entries for the doctor's department
 export const getQueue = asyncHandler(async (req: AuthRequest, res: Response) => {
   const today = todayString();
 
-  // If doctor is logged in, filter by their department
-  let filter: any = { date: today };
+  // Always exclude done entries
+  const filter: any = { date: today, status: { $ne: "done" } };
+
+  // Filter by doctor's department
   if (req.user?.role === "doctor") {
-    const Staff = (await import("../models/Staff")).default;
     const staff = await Staff.findOne({ user: req.user._id }).lean() as any;
     if (staff?.department) {
       filter.department = staff.department;
@@ -88,17 +90,11 @@ export const addToQueue = asyncHandler(async (req: AuthRequest, res: Response) =
 export const nextPatient = asyncHandler(async (req: AuthRequest, res: Response) => {
   const today = todayString();
 
-  // Get doctor's department
-  let department: string | undefined;
-  if (req.user?.role === "doctor") {
-    const Staff = (await import("../models/Staff")).default;
-    const staff = await Staff.findOne({ user: req.user._id }).lean() as any;
-    department = staff?.department;
-  }
-
+  const staff = await Staff.findOne({ user: req.user?._id }).lean() as any;
+  const department = staff?.department;
   const filter = department ? { date: today, department } : { date: today };
 
-  // Mark current patient done and assign doctor
+  // Mark current in-consultation as done
   await Queue.findOneAndUpdate(
     { ...filter, status: "in-consultation" },
     { status: "done", doctor: req.user?._id || undefined },

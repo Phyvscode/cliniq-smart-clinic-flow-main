@@ -474,6 +474,8 @@ const DoctorPrescription = () => {
       setSavedRxId(rxId);
       setSaved(true);
       await refreshQueue();
+      // Delayed refresh ensures backend has committed the done status
+      setTimeout(() => refreshQueue(), 1500);
     } catch (err: any) {
       alert(err.message || "Failed to save prescription");
     } finally { setSaving(false); }
@@ -485,8 +487,8 @@ const DoctorPrescription = () => {
     try {
       const res = await apiSendPrescription(savedRxId);
       setSendResult({ success: true, message: res.message, pdfUrl: res.pdfUrl });
-      // Mark queue done when PDF is generated/sent
       await refreshQueue();
+      setTimeout(() => refreshQueue(), 1500);
     } catch (err: any) {
       setSendResult({ success: false, message: err.message });
     } finally { setSending(false); }
