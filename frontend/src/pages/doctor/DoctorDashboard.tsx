@@ -4,13 +4,22 @@ import { motion } from "framer-motion";
 import { Stethoscope, User, ChevronRight, LogOut, KeyRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 import { useClinic } from "@/context/ClinicContext";
 import QueuePanel from "@/components/QueuePanel";
 import ChangePinModal from "@/components/ChangePinModal";
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
-  const { queue, patients } = useClinic();
+  const { queue, patients, refreshQueue } = useClinic();
+
+  // Refresh queue every time the dashboard mounts
+  useEffect(() => {
+    refreshQueue();
+    const interval = setInterval(refreshQueue, 15000); // every 15s
+    return () => clearInterval(interval);
+  }, []);
+
   const [showChangePin, setShowChangePin] = useState(false);
 
   const storedUser = localStorage.getItem("cliniq_user");

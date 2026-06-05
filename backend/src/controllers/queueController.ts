@@ -12,11 +12,18 @@ export const getQueue = asyncHandler(async (req: AuthRequest, res: Response) => 
   // Always exclude done entries
   const filter: any = { date: today, status: { $ne: "done" } };
 
-  // Filter by doctor's department
+  // Filter by doctor's department or specialization
   if (req.user?.role === "doctor") {
     const staff = await Staff.findOne({ user: req.user._id }).lean() as any;
-    if (staff?.department) {
-      filter.department = staff.department;
+    const deptValue = staff?.department || staff?.specialization;
+    if (deptValue) {
+      // Match entries for this department, OR entries with no department set
+      filter.$or = [
+        { department: deptValue },
+        { department: { $exists: false } },
+        { department: null },
+        { department: "" },
+      ];
     }
   }
 
