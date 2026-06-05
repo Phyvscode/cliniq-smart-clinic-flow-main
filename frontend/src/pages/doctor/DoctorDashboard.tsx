@@ -13,12 +13,8 @@ const DoctorDashboard = () => {
   const navigate = useNavigate();
   const { queue, patients, refreshQueue } = useClinic();
 
-  // Refresh queue every time the dashboard mounts
-  useEffect(() => {
-    refreshQueue();
-    const interval = setInterval(refreshQueue, 15000); // every 15s
-    return () => clearInterval(interval);
-  }, []);
+  // Refresh queue when dashboard mounts
+  useEffect(() => { refreshQueue(); }, []);
 
   const [showChangePin, setShowChangePin] = useState(false);
 
@@ -28,8 +24,15 @@ const DoctorDashboard = () => {
   const activeQueue = queue.filter(q => q.status !== "done");
 
   const queuePatients = activeQueue
-    .map(q => ({ queueEntry: q, patient: patients.find(p => p.id === q.patientId)! }))
-    .filter(q => q.patient);
+    .map(q => {
+      // Use _patient stored directly on queue entry (from populated response)
+      // Fall back to patients store if needed
+      const patient = (q as any)._patient
+        || patients.find(p => p.id === q.patientId)
+        || null;
+      return { queueEntry: q, patient };
+    })
+    .filter(item => item.patient !== null);
 
   const handleLogout = () => {
     localStorage.removeItem("cliniq_token");
