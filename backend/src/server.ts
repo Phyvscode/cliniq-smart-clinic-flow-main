@@ -40,14 +40,15 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
+app.get("/", (_req, res) => res.json({ status: "ok", app: "ClinIQ API", version: "1.0.0" }));
+app.get("/api/health", (_req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
+
 app.use("/api/auth",          authRoutes);
 app.use("/api/patients",      patientRoutes);
 app.use("/api/queue",         queueRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
 app.use("/api/medicines",     medicineRoutes);
 app.use("/api/admin",         adminRoutes);
-
-app.get("/api/health", (_req, res) => res.json({ status: "ok", timestamp: new Date() }));
 
 app.use(errorHandler);
 
@@ -77,7 +78,8 @@ const autoSeedMedicines = async () => {
     const count = await Medicine.countDocuments();
     if (count > 0) { console.log(`💊 ${count} medicines already in database`); return; }
     console.log("🌱 Seeding medicines...");
-    const { default: MEDICINE_SEEDS } = await import("./data/medicineSeeds.js");
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const MEDICINE_SEEDS = require("./data/medicineSeeds").default;
     await Medicine.insertMany(MEDICINE_SEEDS);
     console.log(`✅ Seeded ${MEDICINE_SEEDS.length} medicines`);
   } catch (err) {
