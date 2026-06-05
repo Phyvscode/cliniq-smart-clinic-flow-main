@@ -3,8 +3,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import path from "path";
+import mongoose from "mongoose";
 import connectDB from "./config/db";
-import MEDICINE_SEEDS from "./data/medicineSeeds";
 import { errorHandler } from "./middleware/errorHandler";
 
 // ── Import all models first so Mongoose registers them before any route uses populate ──
@@ -73,20 +73,13 @@ const startServer = (port: number) => {
 
 const autoSeedMedicines = async () => {
   try {
-    const Medicine = (await import("./models/Medicine")).default;
+    const Medicine = mongoose.model("Medicine");
     const count = await Medicine.countDocuments();
-    if (count === 0) {
-      console.log("🌱 No medicines found — auto-seeding...");
-      const ALL_MEDICINES = MEDICINE_SEEDS;
-      let added = 0;
-      for (const med of ALL_MEDICINES) {
-        const exists = await Medicine.findOne({ name: { $regex: new RegExp(`^${med.name}$`, "i") } });
-        if (!exists) { await Medicine.create(med); added++; }
-      }
-      console.log(`✅ Seeded ${added} medicines`);
-    } else {
-      console.log(`💊 ${count} medicines already in database`);
-    }
+    if (count > 0) { console.log(`💊 ${count} medicines already in database`); return; }
+    console.log("🌱 Seeding medicines...");
+    const { default: MEDICINE_SEEDS } = await import("./data/medicineSeeds.js");
+    await Medicine.insertMany(MEDICINE_SEEDS);
+    console.log(`✅ Seeded ${MEDICINE_SEEDS.length} medicines`);
   } catch (err) {
     console.error("⚠️  Medicine seed error:", err);
   }
