@@ -41,42 +41,36 @@ export interface Medicine {
 }
 
 export interface PrescriptionMedicine {
-  medicineId:    string;
-  name:          string;
-  // Timing slots (classic morning/afternoon/evening/night)
-  morning:       boolean;
-  afternoon:     boolean;
-  evening:       boolean;
-  night:         boolean;
-  // NEW: flexible interval (e.g. "every 4 hours", "every 6 hours", "every 8 hours")
-  // when set, overrides the slot toggles
-  frequencyInterval?: "4h" | "6h" | "8h" | "12h" | null;
-  // NEW: dosage amount and unit
-  dosageAmount?: number;          // e.g. 500
-  dosageUnit?:   "mg" | "ml";    // e.g. "mg"
-  durationDays:  number;
-  // NEW: special instructions
-  instructions?: string;         // e.g. "After food", "Before sleep"
+  medicineId: string;
+  name: string;
+  morning: boolean;
+  afternoon: boolean;
+  evening: boolean;
+  night: boolean;
+  durationDays: number;
+  instructions?: string;
 }
 
 export interface Prescription {
-  id:          string;
-  patientId:   string;
-  doctorName:  string;
-  date:        string;
-  diagnosis?:  string;           // NEW: doctor's final diagnosis
-  medicines:   PrescriptionMedicine[];
-  notes?:      string;
+  id: string;
+  patientId: string;
+  doctorName: string;
+  date: string;
+  medicines: PrescriptionMedicine[];
+  notes?: string;
 }
 
 export interface QueueEntry {
-  id:              string;
-  patientId:       string;
-  queueNumber:     number;
-  status:          "waiting" | "in-consultation" | "done";
-  addedAt:         string;
-  assignedDoctor?: any;
+  id: string;
+  patientId: string;
+  queueNumber: number;
+  status: "waiting" | "in-consultation" | "done";
+  addedAt: string;
+  department?: string;
+  rxCode?: string;
+  _patient?: any;  // populated patient data from backend
 }
 
-// All data comes from the backend
-export const MEDICINES: Medicine[] = [];
+// No INITIAL_PATIENTS, no INITIAL_PRESCRIPTIONS, no hardcoded MEDICINES.
+// All data comes from the backend.
+export const MEDICINES: Medicine[] = []; // kept for type compat, populated at runtime

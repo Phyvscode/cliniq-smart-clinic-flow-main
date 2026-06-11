@@ -27,7 +27,7 @@ const DoctorDashboard = () => {
     .map(q => {
       // Use _patient stored directly on queue entry (from populated response)
       // Fall back to patients store if needed
-      const patient = (q as any)._patient
+      const patient = q._patient
         || patients.find(p => p.id === q.patientId)
         || null;
       return { queueEntry: q, patient };

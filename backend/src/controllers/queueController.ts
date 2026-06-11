@@ -9,23 +9,8 @@ import { todayString } from "../utils/generateToken";
 export const getQueue = asyncHandler(async (req: AuthRequest, res: Response) => {
   const today = todayString();
 
-  // Always exclude done entries
+  // Show all active entries for today to all logged-in users
   const filter: any = { date: today, status: { $ne: "done" } };
-
-  // Filter by doctor's department or specialization
-  if (req.user?.role === "doctor") {
-    const staff = await Staff.findOne({ user: req.user._id }).lean() as any;
-    const deptValue = staff?.department || staff?.specialization;
-    if (deptValue) {
-      // Match entries for this department, OR entries with no department set
-      filter.$or = [
-        { department: deptValue },
-        { department: { $exists: false } },
-        { department: null },
-        { department: "" },
-      ];
-    }
-  }
 
   const queue = await Queue.find(filter)
     .populate("patient")
