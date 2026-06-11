@@ -23,6 +23,11 @@ import queueRoutes        from "./routes/queueRoutes";
 import prescriptionRoutes from "./routes/prescriptionRoutes";
 import medicineRoutes     from "./routes/medicineRoutes";
 import adminRoutes        from "./routes/adminRoutes";
+import pharmacyRoutes     from "./routes/pharmacyRoutes";
+import revenueRoutes      from "./routes/revenueRoutes";
+import salaryRoutes       from "./routes/salaryRoutes";
+import paymentRoutes      from "./routes/paymentRoutes";
+import tierRoutes         from "./routes/tierRoutes";
 
 const app = express();
 
@@ -49,6 +54,11 @@ app.use("/api/queue",         queueRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
 app.use("/api/medicines",     medicineRoutes);
 app.use("/api/admin",         adminRoutes);
+app.use("/api/pharmacy",      pharmacyRoutes);
+app.use("/api/revenue",       revenueRoutes);
+app.use("/api/salary",        salaryRoutes);
+app.use("/api/payments",      paymentRoutes);
+app.use("/api/tier",          tierRoutes);
 
 app.use(errorHandler);
 

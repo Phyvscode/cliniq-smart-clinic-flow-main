@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Stethoscope, User, ChevronRight, LogOut, KeyRound } from "lucide-react";
+import { Stethoscope, User, ChevronRight, LogOut, KeyRound, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
@@ -13,8 +13,12 @@ const DoctorDashboard = () => {
   const navigate = useNavigate();
   const { queue, patients, refreshQueue } = useClinic();
 
-  // Refresh queue when dashboard mounts
-  useEffect(() => { refreshQueue(); }, []);
+  // Poll every 5s for real-time queue updates
+  useEffect(() => {
+    refreshQueue();
+    const interval = setInterval(refreshQueue, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const [showChangePin, setShowChangePin] = useState(false);
 
@@ -54,6 +58,9 @@ const DoctorDashboard = () => {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground mr-1">{activeQueue.length} in queue</span>
+          <button onClick={refreshQueue} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Refresh queue">
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
           <Button variant="ghost" size="sm" onClick={() => setShowChangePin(true)}
             className="gap-1.5 text-muted-foreground hover:text-foreground">
             <KeyRound className="w-4 h-4" /> Change PIN
