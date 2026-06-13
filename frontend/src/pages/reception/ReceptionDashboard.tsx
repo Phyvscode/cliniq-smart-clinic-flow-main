@@ -6,6 +6,7 @@ import {
   Users, Phone, UserCheck, CheckCircle2, ChevronDown,
   Trash2, RefreshCw, Search, UserX, ClipboardList, LogOut, KeyRound,
   IndianRupee, Banknote, Smartphone, CreditCard, Plus, X, FlaskConical,
+  Calendar, FileBarChart, Download, PhoneCall, PhoneMissed, CheckCheck, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,7 +104,7 @@ const DEPARTMENTS = [
 ];
 
 type Step = "idle" | "found" | "new";
-type Tab  = "register" | "tests" | "queue" | "manage";
+type Tab  = "register" | "tests" | "queue" | "manage" | "followups" | "reports";
 
 const calculateAge = (dob: string): number => {
   if (!dob) return 0;
@@ -720,6 +721,290 @@ const ManageTab = () => {
   );
 };
 
+// ─── Follow-ups Tab (Feature 6) ───────────────────────────────────────────────
+const FOLLOWUP_STATUSES = [
+  { key: "called",       label: "Called",       icon: PhoneCall,    color: "text-emerald-500" },
+  { key: "not_answered", label: "Not Answered", icon: PhoneMissed,  color: "text-red-500"     },
+  { key: "rescheduled",  label: "Rescheduled",  icon: RotateCcw,    color: "text-amber-500"   },
+  { key: "confirmed",    label: "Confirmed",    icon: CheckCheck,   color: "text-blue-500"    },
+];
+
+const FollowupsTab = () => {
+  const [followups, setFollowups] = useState<any[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [statuses,  setStatuses]  = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${BASE_URL}/prescriptions/followups`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        const data = await res.json();
+        setFollowups(data.followups || []);
+      } catch { setFollowups([]); }
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const today    = new Date().toISOString().split("T")[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+
+  const todayFollowups    = followups.filter(f => f.followUpDate?.startsWith(today));
+  const tomorrowFollowups = followups.filter(f => f.followUpDate?.startsWith(tomorrow));
+  const otherFollowups    = followups.filter(f => !f.followUpDate?.startsWith(today) && !f.followUpDate?.startsWith(tomorrow));
+
+  const updateStatus = async (id: string, status: string) => {
+    setStatuses(prev => ({ ...prev, [id]: status }));
+    try {
+      await fetch(`${BASE_URL}/prescriptions/followups/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ status }),
+      });
+    } catch {}
+  };
+
+  const FollowupCard = ({ f }: { f: any }) => {
+    const status = statuses[f._id] || f.followUpStatus || "";
+    return (
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-semibold text-foreground">{f.patientName || f.patient?.name}</p>
+            <p className="text-sm text-muted-foreground">{f.patientPhone || f.patient?.phone}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Dr. {f.doctorName} · Last visit: {f.date ? new Date(f.date).toLocaleDateString("en-IN") : "—"}
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-xs font-medium text-primary">Follow-up</p>
+            <p className="text-xs text-muted-foreground">
+              {f.followUpDate ? new Date(f.followUpDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {FOLLOWUP_STATUSES.map(s => (
+            <button key={s.key} onClick={() => updateStatus(f._id, s.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border-2 transition-all ${
+                status === s.key
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-border text-muted-foreground hover:border-primary/40"
+              }`}>
+              <s.icon className={`w-3 h-3 ${status === s.key ? "text-primary" : s.color}`} />
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const Section = ({ title, items }: { title: string; items: any[] }) => (
+    items.length > 0 ? (
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-3">{title} ({items.length})</h3>
+        <div className="space-y-3 mb-6">
+          {items.map(f => <FollowupCard key={f._id} f={f} />)}
+        </div>
+      </div>
+    ) : null
+  );
+
+  return (
+    <div className="max-w-lg mx-auto">
+      <h2 className="text-xl font-bold text-foreground mb-1">Follow-up Dashboard</h2>
+      <p className="text-sm text-muted-foreground mb-6">Patients due for follow-up consultation</p>
+      {loading ? (
+        <div className="flex items-center justify-center py-16"><RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : followups.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">No follow-ups scheduled</p>
+          <p className="text-sm">Follow-ups are created when doctors prescribe a return date</p>
+        </div>
+      ) : (
+        <div>
+          <Section title="Today" items={todayFollowups} />
+          <Section title="Tomorrow" items={tomorrowFollowups} />
+          <Section title="Upcoming" items={otherFollowups} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Reports Tab (Feature 7) ──────────────────────────────────────────────────
+type ReportPeriod = "today" | "yesterday" | "week" | "month" | "custom";
+
+const ReportsTab = () => {
+  const [period,    setPeriod]    = useState<ReportPeriod>("today");
+  const [startDate, setStartDate] = useState("");
+  const [endDate,   setEndDate]   = useState("");
+  const [rows,      setRows]      = useState<any[]>([]);
+  const [loading,   setLoading]   = useState(false);
+
+  const getRange = (): { start: string; end: string } => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    if (period === "today")     return { start: fmt(today), end: fmt(today) };
+    if (period === "yesterday") { const d = new Date(today); d.setDate(d.getDate()-1); return { start: fmt(d), end: fmt(d) }; }
+    if (period === "week")      { const d = new Date(today); d.setDate(d.getDate()-6); return { start: fmt(d), end: fmt(today) }; }
+    if (period === "month")     { const d = new Date(today); d.setDate(1); return { start: fmt(d), end: fmt(today) }; }
+    return { start: startDate, end: endDate };
+  };
+
+  const loadReport = async () => {
+    const { start, end } = getRange();
+    if (!start || !end) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/reports/reception?start=${start}&end=${end}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const data = await res.json();
+      setRows(data.rows || data.patients || data.records || []);
+    } catch { setRows([]); }
+    setLoading(false);
+  };
+
+  useEffect(() => { if (period !== "custom") loadReport(); }, [period]);
+
+  const exportCSV = () => {
+    if (rows.length === 0) return;
+    const headers = ["Patient ID","Name","Age","Gender","Phone","Doctor","Department","Payment Method","Consultation Fee","Total Amount","Date","Time"];
+    const data = rows.map((r: any) => [
+      r.patientId || r._id || "",
+      r.patientName || r.name || "",
+      r.age || "",
+      r.gender || "",
+      r.phone || "",
+      r.doctorName || r.doctor || "",
+      r.department || "",
+      r.paymentMethod || r.method || "",
+      r.consultationFee || r.fee || "",
+      r.totalAmount || r.amount || "",
+      r.date ? new Date(r.date).toLocaleDateString("en-IN") : "",
+      r.date ? new Date(r.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "",
+    ]);
+    const csv = [headers, ...data].map(row => row.map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a"); a.href = url;
+    const { start, end } = getRange();
+    a.download = `cliniq-report-${start}-to-${end}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const PERIODS: { key: ReportPeriod; label: string }[] = [
+    { key: "today",     label: "Today"      },
+    { key: "yesterday", label: "Yesterday"  },
+    { key: "week",      label: "This Week"  },
+    { key: "month",     label: "This Month" },
+    { key: "custom",    label: "Custom"     },
+  ];
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Reports</h2>
+          <p className="text-sm text-muted-foreground">Patient visit & payment records</p>
+        </div>
+        <Button onClick={exportCSV} disabled={rows.length === 0} variant="outline" className="gap-2 rounded-xl">
+          <Download className="w-4 h-4" /> Export CSV
+        </Button>
+      </div>
+
+      {/* Period filter */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {PERIODS.map(p => (
+          <button key={p.key} onClick={() => setPeriod(p.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all ${
+              period === p.key ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
+            }`}>{p.label}</button>
+        ))}
+      </div>
+
+      {/* Custom date range */}
+      {period === "custom" && (
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 mb-4 items-end">
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground mb-1 block">From</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+              className="w-full h-10 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-foreground" />
+          </div>
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground mb-1 block">To</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+              className="w-full h-10 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-foreground" />
+          </div>
+          <Button onClick={loadReport} disabled={!startDate || !endDate} className="h-10 rounded-xl gap-2">
+            <Search className="w-4 h-4" /> Load
+          </Button>
+        </motion.div>
+      )}
+
+      {/* Summary cards */}
+      {rows.length > 0 && (
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {[
+            { label: "Total Patients", value: rows.length },
+            { label: "Total Revenue",  value: `₹${rows.reduce((s: number, r: any) => s + (Number(r.totalAmount || r.amount || 0)), 0).toLocaleString("en-IN")}` },
+            { label: "Avg per Patient", value: `₹${Math.round(rows.reduce((s: number, r: any) => s + (Number(r.totalAmount || r.amount || 0)), 0) / rows.length).toLocaleString("en-IN")}` },
+          ].map(c => (
+            <div key={c.label} className="bg-card border border-border rounded-xl p-3 text-center">
+              <p className="text-lg font-bold text-foreground">{c.value}</p>
+              <p className="text-xs text-muted-foreground">{c.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Table */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16"><RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : rows.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <FileBarChart className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">No records found</p>
+          <p className="text-sm">Try a different date range</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50 border-b border-border">
+                {["Name","Age","Gender","Phone","Doctor","Dept","Method","Amount","Date"].map(h => (
+                  <th key={h} className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r: any, i: number) => (
+                <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                  <td className="px-3 py-2.5 font-medium text-foreground whitespace-nowrap">{r.patientName || r.name || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.age || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.gender || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.phone || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.doctorName || r.doctor || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.department || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.paymentMethod || r.method || "—"}</td>
+                  <td className="px-3 py-2.5 font-medium text-foreground">₹{(r.totalAmount || r.amount || 0).toLocaleString("en-IN")}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.date ? new Date(r.date).toLocaleDateString("en-IN") : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const ReceptionDashboard = () => {
   const { queue } = useClinic();
@@ -737,10 +1022,12 @@ const ReceptionDashboard = () => {
   const activeQueue = queue.filter(q => q.status !== "done");
 
   const tabs = [
-    { key: "register" as Tab, label: "Register",                     icon: UserCheck     },
-    { key: "tests"    as Tab, label: "Tests",                         icon: FlaskConical  },
-    { key: "queue"    as Tab, label: `Queue (${activeQueue.length})`, icon: ClipboardList },
-    { key: "manage"   as Tab, label: "Manage",                        icon: RefreshCw     },
+    { key: "register"  as Tab, label: "Register",                     icon: UserCheck    },
+    { key: "tests"     as Tab, label: "Tests",                         icon: FlaskConical },
+    { key: "queue"     as Tab, label: `Queue (${activeQueue.length})`, icon: ClipboardList},
+    { key: "manage"    as Tab, label: "Manage",                        icon: RefreshCw    },
+    { key: "followups" as Tab, label: "Follow-ups",                    icon: Calendar     },
+    { key: "reports"   as Tab, label: "Reports",                       icon: FileBarChart },
   ];
 
   return (
@@ -799,6 +1086,16 @@ const ReceptionDashboard = () => {
           {activeTab === "manage" && (
             <motion.div key="manage" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
               <ManageTab />
+            </motion.div>
+          )}
+          {activeTab === "followups" && (
+            <motion.div key="followups" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
+              <FollowupsTab />
+            </motion.div>
+          )}
+          {activeTab === "reports" && (
+            <motion.div key="reports" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
+              <ReportsTab />
             </motion.div>
           )}
         </AnimatePresence>

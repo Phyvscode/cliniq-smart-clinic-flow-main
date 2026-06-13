@@ -382,7 +382,25 @@ const DoctorPrescription = () => {
   const [sending,      setSending]      = useState(false);
   const [sendResult,   setSendResult]   = useState<{ success: boolean; message: string; pdfUrl?: string } | null>(null);
 
+  // Feature 5: Follow-up date
+  const [followUpDate,     setFollowUpDate]     = useState("");
+  const [followUpOverride, setFollowUpOverride] = useState(false);
+
+  // Feature 3: Completion actions
+  const [actionPrint,    setActionPrint]    = useState(false);
+  const [actionPharmacy, setActionPharmacy] = useState(false);
+  const [actionFollowUp, setActionFollowUp] = useState(false);
+
   useEffect(() => { refreshMedicines(); }, []);
+
+  // Feature 5: auto-suggest follow-up date from max medicine duration
+  useEffect(() => {
+    if (medicines.length === 0 || followUpOverride) return;
+    const maxDays = Math.max(...medicines.map(m => m.durationDays || 5));
+    const d = new Date();
+    d.setDate(d.getDate() + maxDays + (maxDays <= 3 ? 2 : maxDays <= 7 ? 3 : 5));
+    setFollowUpDate(d.toISOString().split("T")[0]);
+  }, [medicines, followUpOverride]);
 
   const filteredMeds = useMemo(() => {
     let meds = ctxMedicines;
@@ -459,6 +477,7 @@ const DoctorPrescription = () => {
           instructions:      m.instructions      || "",
         })),
         notes:        doctorNotes || "",
+        followUpDate: followUpDate || null,
         referral:     referralEnabled && finalSpecialist ? {
           specialist: finalSpecialist,
           notes:      referralNotes || "",
@@ -556,57 +575,90 @@ const DoctorPrescription = () => {
               </div>
             </div>
 
-            <AnimatePresence>
-              {sendResult && (
-                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-                  className={`rounded-xl p-4 flex items-start gap-3 ${
-                    sendResult.success
-                      ? "bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800"
-                      : "bg-destructive/10 border border-destructive/20"
-                  }`}>
-                  {sendResult.success
-                    ? <Check className="w-5 h-5 text-emerald-500 mt-0.5 shrink-0" />
-                    : <X     className="w-5 h-5 text-destructive mt-0.5 shrink-0" />}
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${sendResult.success ? "text-emerald-700 dark:text-emerald-300" : "text-destructive"}`}>
-                      {sendResult.message}
-                    </p>
-                    {sendResult.pdfUrl && (
-                      <a href={sendResult.pdfUrl} target="_blank" rel="noreferrer"
-                        className="text-xs text-primary hover:underline mt-1 inline-block">
-                        View prescription PDF →
-                      </a>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
-            <div className="space-y-3">
-              <Button onClick={handleSend} disabled={sending}
-                className="w-full h-12 rounded-xl text-base font-medium gap-2" size="lg">
-                {sending
-                  ? <><RefreshCw className="w-4 h-4 animate-spin" /> Generating & Sending...</>
-                  : <><Send className="w-4 h-4" /> Generate PDF & Send via WhatsApp</>}
-              </Button>
-              <Button variant="outline" onClick={() => apiDownloadPrescription(savedRxId)}
-                className="w-full h-12 rounded-xl gap-2">
-                <Download className="w-4 h-4" /> Download Prescription PDF
-              </Button>
+            {/* ── Completion Actions (Feature 3) ── */}
+            <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Actions</p>
 
-              {/* Lab form download — only shown if lab tests were added */}
+              {/* Send via WhatsApp */}
+              <div className="space-y-2">
+                <Button onClick={handleSend} disabled={sending}
+                  className="w-full h-12 rounded-xl text-base font-medium gap-2" size="lg">
+                  {sending
+                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> Generating & Sending...</>
+                    : <><Send className="w-4 h-4" /> Send via WhatsApp</>}
+                </Button>
+
+                <AnimatePresence>
+                  {sendResult && (
+                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                      className={`rounded-xl p-3 flex items-start gap-3 ${
+                        sendResult.success
+                          ? "bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800"
+                          : "bg-destructive/10 border border-destructive/20"
+                      }`}>
+                      {sendResult.success
+                        ? <Check className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                        : <X     className="w-4 h-4 text-destructive mt-0.5 shrink-0" />}
+                      <p className={`text-sm font-medium ${sendResult.success ? "text-emerald-700 dark:text-emerald-300" : "text-destructive"}`}>
+                        {sendResult.message}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Print */}
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 cursor-pointer transition-colors">
+                <input type="checkbox" checked={actionPrint} onChange={e => {
+                  setActionPrint(e.target.checked);
+                  if (e.target.checked) apiDownloadPrescription(savedRxId);
+                }} className="w-4 h-4 rounded accent-primary" />
+                <Download className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">Print / Download Prescription</span>
+              </label>
+
+              {/* Send to Pharmacy */}
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 cursor-pointer transition-colors">
+                <input type="checkbox" checked={actionPharmacy} onChange={async e => {
+                  setActionPharmacy(e.target.checked);
+                  if (e.target.checked && savedRxId) {
+                    try {
+                      await fetch(`${BASE_URL}/prescriptions/${savedRxId}/send-pharmacy`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${localStorage.getItem("cliniq_token")}` },
+                      });
+                    } catch {}
+                  }
+                }} className="w-4 h-4 rounded accent-primary" />
+                <Printer className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">Send to Pharmacy</span>
+              </label>
+
+              {/* Book Follow-up */}
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 cursor-pointer transition-colors">
+                <input type="checkbox" checked={actionFollowUp} onChange={e => setActionFollowUp(e.target.checked)}
+                  className="w-4 h-4 rounded accent-primary" />
+                <span className="text-lg">📅</span>
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-foreground">Book Follow-up</span>
+                  {followUpDate && <p className="text-xs text-muted-foreground">{new Date(followUpDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>}
+                </div>
+              </label>
+
+              {/* Lab form */}
               {labEnabled && selectedTests.length > 0 && (
                 <Button variant="outline" onClick={() => apiDownloadLabForm(savedRxId)}
-                  className="w-full h-12 rounded-xl gap-2 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/5">
-                  <Printer className="w-4 h-4" /> Download Lab Investigation Form
+                  className="w-full h-11 rounded-xl gap-2 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/5">
+                  <Printer className="w-4 h-4" /> Download Lab Form
                 </Button>
               )}
-
-              <Button variant="ghost" onClick={handleFinish}
-                className="w-full h-11 rounded-xl text-muted-foreground">
-                Done — Back to Dashboard
-              </Button>
             </div>
+
+            <Button variant="ghost" onClick={handleFinish}
+              className="w-full h-11 rounded-xl text-muted-foreground">
+              Done — Back to Dashboard
+            </Button>
           </motion.div>
         )}
 
@@ -982,6 +1034,35 @@ const DoctorPrescription = () => {
                 className="w-full bg-background border border-border rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground leading-relaxed"
               />
             </div>
+
+            {/* ── Follow-up Date (Feature 5) ── */}
+            {medicines.length > 0 && (
+              <div className="bg-card border border-border rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm">📅</span>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Follow-up Date</label>
+                </div>
+                {followUpDate && !followUpOverride && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Suggested based on treatment duration
+                  </p>
+                )}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="date"
+                    value={followUpDate}
+                    onChange={e => { setFollowUpDate(e.target.value); setFollowUpOverride(true); }}
+                    className="flex-1 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                  />
+                  {followUpOverride && (
+                    <button onClick={() => setFollowUpOverride(false)}
+                      className="text-xs text-primary hover:underline shrink-0">Reset</button>
+                  )}
+                  <button onClick={() => setFollowUpDate("")}
+                    className="text-xs text-muted-foreground hover:text-foreground shrink-0">Clear</button>
+                </div>
+              </div>
+            )}
 
             <Button onClick={handleSave} disabled={medicines.length === 0 || saving}
               className="w-full h-12 rounded-xl text-base font-medium gap-2">

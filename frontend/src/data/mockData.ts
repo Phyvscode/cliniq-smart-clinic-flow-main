@@ -38,6 +38,9 @@ export interface Medicine {
   id: string;
   name: string;
   type: string;
+  salt?: string;
+  strength?: string;
+  category?: string;
 }
 
 export interface PrescriptionMedicine {
