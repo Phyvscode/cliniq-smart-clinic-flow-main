@@ -493,6 +493,19 @@ const DoctorPrescription = () => {
       sessionStorage.removeItem("currentDiagnosis");
       setSavedRxId(rxId);
       setSaved(true);
+
+      // Mark queue entry as done immediately on save
+      const queueId = queueEntry?.id || "";
+      setSavedQueueId(queueId);
+      if (queueId) {
+        await fetch(`${BASE_URL}/queue/${queueId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("cliniq_token")}` },
+          body: JSON.stringify({ status: "done" }),
+        });
+      }
+      await refreshQueue();
+      setTimeout(() => refreshQueue(), 1500);
     } catch (err: any) {
       alert(err.message || "Failed to save prescription");
     } finally { setSaving(false); }
@@ -504,17 +517,6 @@ const DoctorPrescription = () => {
     try {
       const res = await apiSendPrescription(savedRxId);
       setSendResult({ success: true, message: res.message, pdfUrl: res.pdfUrl });
-
-      // Mark queue entry as done NOW — only when prescription is sent
-      if (savedQueueId) {
-        await fetch(`${BASE_URL}/queue/${savedQueueId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("cliniq_token")}` },
-          body: JSON.stringify({ status: "done" }),
-        });
-      }
-      await refreshQueue();
-      setTimeout(() => refreshQueue(), 1500);
     } catch (err: any) {
       setSendResult({ success: false, message: err.message });
     } finally { setSending(false); }
