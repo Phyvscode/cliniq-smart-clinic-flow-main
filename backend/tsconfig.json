@@ -12,6 +12,6 @@
     "resolveJsonModule": true,
     "moduleResolution": "node"
   },
-  "include": ["src/**/*", "src/data/medicineSeeds.ts"],
+  "include": ["src/**/*", "src/data/medicineSeeds.ts", "../frontend/src/data/mockData.ts"],
   "exclude": ["node_modules", "dist"]
 }

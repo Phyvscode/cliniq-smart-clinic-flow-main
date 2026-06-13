@@ -63,33 +63,7 @@ export const createPrescription = asyncHandler(async (req: AuthRequest, res: Res
     date:           todayString(),
   });
 
-  // Mark queue entry as done — by id if provided, else find by patientId today
-  const today = todayString();
-  if (queueEntryId) {
-    await Queue.findByIdAndUpdate(queueEntryId, { status: "done", doctor: req.user?._id });
-  } else {
-    // Fallback: find the active queue entry for this patient today
-    await Queue.findOneAndUpdate(
-      { patient: patientId, date: today, status: { $in: ["waiting", "in-consultation"] } },
-      { status: "done", doctor: req.user?._id },
-    );
-  }
-
-  // Auto-promote next waiting patient in same department
-  const doneEntry = queueEntryId
-    ? await Queue.findById(queueEntryId).lean() as any
-    : await Queue.findOne({ patient: patientId, date: today, status: "done" }).lean() as any;
-
-  const deptFilter = doneEntry?.department ? { department: doneEntry.department } : {};
-
-  const activeCount = await Queue.countDocuments({ date: today, ...deptFilter, status: "in-consultation" });
-  if (activeCount === 0) {
-    await Queue.findOneAndUpdate(
-      { date: today, ...deptFilter, status: "waiting" },
-      { status: "in-consultation" },
-      { sort: { queueNumber: 1 } },
-    );
-  }
+  // Queue is marked done separately when doctor sends prescription via WhatsApp
 
   res.status(201).json({ prescription });
 });
