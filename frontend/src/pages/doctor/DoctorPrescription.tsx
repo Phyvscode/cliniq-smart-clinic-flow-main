@@ -164,7 +164,7 @@ const MedicineCard = ({ med, onRemove, onUpdate }: MedCardProps) => {
   const [expanded, setExpanded] = useState(true);
 
   const toggleSlot = (slot: DoseSlot) =>
-    onUpdate(med.medicineId, { [slot]: !med[slot], frequencyInterval: null });
+    onUpdate(med.medicineId, { [slot]: !med[slot as keyof typeof med], frequencyInterval: null });
 
   const setFreqInterval = (key: "4h" | "6h" | "8h" | "12h" | null) =>
     onUpdate(med.medicineId, {
@@ -250,7 +250,7 @@ const MedicineCard = ({ med, onRemove, onUpdate }: MedCardProps) => {
                   {DOSE_SLOTS.map(slot => (
                     <button key={slot} onClick={() => toggleSlot(slot)} disabled={usingInterval}
                       className={`py-2 rounded-xl text-xs font-medium transition-all border-2 ${
-                        !usingInterval && med[slot]
+                        !usingInterval && med[slot as keyof typeof med]
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border text-muted-foreground hover:border-primary/40"
                       } ${usingInterval ? "opacity-40 cursor-not-allowed" : ""}`}>
@@ -359,13 +359,13 @@ const DoctorPrescription = () => {
   const [diagSearch,           setDiagSearch]           = useState("");
 
   // Pre-fill from sessionStorage if coming from diagnosis page
-  useState(() => {
+  useEffect(() => {
     const data = sessionStorage.getItem("currentDiagnosis");
     if (data) {
       const p = JSON.parse(data);
-      if (p.diagnoses?.length)      setSelectedDiagnoses(p.diagnoses);
+      if (p.diagnoses?.length) setSelectedDiagnoses(p.diagnoses);
     }
-  });
+  }, []);
   const [selectedTests,  setSelectedTests]  = useState<string[]>([]);
   const [customTest,     setCustomTest]     = useState("");
   const [labNotes,       setLabNotes]       = useState("");
@@ -378,6 +378,7 @@ const DoctorPrescription = () => {
   const [saved,        setSaved]        = useState(false);
   const [savedPatient, setSavedPatient] = useState<any>(null);
   const [saving,       setSaving]       = useState(false);
+  const [savedQueueId, setSavedQueueId] = useState<string>("");
   const [sending,      setSending]      = useState(false);
   const [sendResult,   setSendResult]   = useState<{ success: boolean; message: string; pdfUrl?: string } | null>(null);
 
@@ -435,6 +436,7 @@ const DoctorPrescription = () => {
       const investigations = parsed2.investigations || [];
       const diagnoses      = selectedDiagnoses;
       const queueEntry     = current.queueEntry;
+      setSavedQueueId(queueEntry?.id || "");
 
       const finalSpecialist = referralSpecialist || customSpecialist.trim();
 
@@ -465,7 +467,6 @@ const DoctorPrescription = () => {
           tests: selectedTests,
           notes: labNotes || "",
         } : null,
-        queueEntryId: queueEntry?.id,
       });
 
       const rxId = String(res?.prescription?._id || res?.prescription?.id || res?._id || res?.id || "");
@@ -473,9 +474,6 @@ const DoctorPrescription = () => {
       sessionStorage.removeItem("currentDiagnosis");
       setSavedRxId(rxId);
       setSaved(true);
-      await refreshQueue();
-      // Delayed refresh ensures backend has committed the done status
-      setTimeout(() => refreshQueue(), 1500);
     } catch (err: any) {
       alert(err.message || "Failed to save prescription");
     } finally { setSaving(false); }
@@ -487,6 +485,15 @@ const DoctorPrescription = () => {
     try {
       const res = await apiSendPrescription(savedRxId);
       setSendResult({ success: true, message: res.message, pdfUrl: res.pdfUrl });
+
+      // Mark queue entry as done NOW — only when prescription is sent
+      if (savedQueueId) {
+        await fetch(`${BASE_URL}/queue/${savedQueueId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("cliniq_token")}` },
+          body: JSON.stringify({ status: "done" }),
+        });
+      }
       await refreshQueue();
       setTimeout(() => refreshQueue(), 1500);
     } catch (err: any) {

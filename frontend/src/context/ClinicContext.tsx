@@ -90,12 +90,17 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (inlinePatients.length > 0) {
         setPatients(prev => {
           const map = new Map(prev.map(p => [p.id, p]));
-          inlinePatients.forEach((p: Patient) => { if (!map.has(p.id)) map.set(p.id, p); });
+          // Always upsert so the patients store stays current
+          inlinePatients.forEach((p: Patient) => { map.set(p.id, p); });
           return Array.from(map.values());
         });
+      } else if (entries.length > 0 && entries.some(e => !e._patient)) {
+        // Backend didn't populate patient objects — refresh the patients list
+        // so that newly registered patients appear in the doctor's queue
+        await refreshPatients();
       }
     } catch { }
-  }, []);
+  }, [refreshPatients]);
 
   // Exposed so DoctorPrescription can call it on mount to get latest medicines
   const refreshMedicines = useCallback(async () => {
@@ -113,12 +118,20 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const token = localStorage.getItem("cliniq_token");
     if (!token) return;
     refreshPatients();
-    refreshQueue();
     refreshMedicines();
-    // Keep queue in sync every 30s (catches changes from other logins)
+    // Initial queue load with retry — backend may be waking up
+    const loadQueue = async () => {
+      await refreshQueue();
+      // Retry once after 2s in case Render was cold starting
+      setTimeout(() => {
+        if (localStorage.getItem("cliniq_token")) refreshQueue();
+      }, 2000);
+    };
+    loadQueue();
+    // Keep queue in sync every 20s
     const interval = setInterval(() => {
       if (localStorage.getItem("cliniq_token")) refreshQueue();
-    }, 30000);
+    }, 20000);
     return () => clearInterval(interval);
   }, []);
 

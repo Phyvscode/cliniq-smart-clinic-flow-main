@@ -14,7 +14,7 @@ const QueuePanel = () => {
       <div className="space-y-2">
         <AnimatePresence>
           {activeQueue.map((entry, i) => {
-            const patient = patients.find(p => p.id === entry.patientId);
+            const patient = entry._patient || patients.find(p => p.id === entry.patientId);
             if (!patient) return null;
             const isCurrent = entry.status === "in-consultation";
 

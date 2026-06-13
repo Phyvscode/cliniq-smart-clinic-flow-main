@@ -49,6 +49,9 @@ export interface PrescriptionMedicine {
   night: boolean;
   durationDays: number;
   instructions?: string;
+  frequencyInterval?: "4h" | "6h" | "8h" | "12h" | null;
+  dosageAmount?: number;
+  dosageUnit?: "mg" | "ml";
 }
 
 export interface Prescription {

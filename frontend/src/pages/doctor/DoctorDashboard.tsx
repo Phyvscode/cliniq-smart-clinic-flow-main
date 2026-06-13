@@ -11,12 +11,16 @@ import ChangePinModal from "@/components/ChangePinModal";
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
-  const { queue, patients, refreshQueue } = useClinic();
+  const { queue, patients, refreshQueue, refreshPatients } = useClinic();
 
   // Poll every 5s for real-time queue updates
   useEffect(() => {
     refreshQueue();
-    const interval = setInterval(refreshQueue, 5000);
+    refreshPatients();
+    const interval = setInterval(() => {
+      refreshQueue();
+      refreshPatients();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
