@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useClinic } from "@/context/ClinicContext";
 import { Medicine, PrescriptionMedicine } from "@/data/mockData";
+import { apiUpdateQueueStatus } from "@/lib/api";
 
 const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:5000/api";
 const getToken = () => localStorage.getItem("cliniq_token");
@@ -498,11 +499,7 @@ const DoctorPrescription = () => {
       const queueId = queueEntry?.id || "";
       setSavedQueueId(queueId);
       if (queueId) {
-        await fetch(`${BASE_URL}/queue/${queueId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("cliniq_token")}` },
-          body: JSON.stringify({ status: "done" }),
-        });
+        await apiUpdateQueueStatus(queueId, "done");
       }
       await refreshQueue();
       setTimeout(() => refreshQueue(), 1500);
