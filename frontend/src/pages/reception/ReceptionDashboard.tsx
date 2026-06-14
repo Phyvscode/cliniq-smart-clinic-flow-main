@@ -1007,7 +1007,7 @@ const ReportsTab = () => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const ReceptionDashboard = () => {
-  const { queue } = useClinic();
+  const { queue, refreshQueue, refreshPatients } = useClinic();
   const navigate  = useNavigate();
   const [activeTab,      setActiveTab]      = useState<Tab>("register");
   const [showChangePin,  setShowChangePin]  = useState(false);
@@ -1044,6 +1044,11 @@ const ReceptionDashboard = () => {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground mr-1">{activeQueue.length} in queue</span>
+          <button onClick={() => { refreshQueue(); refreshPatients(); }}
+            className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
+            title="Refresh">
+            <RefreshCw className="w-4 h-4" />
+          </button>
           <Button variant="ghost" size="sm" onClick={() => setShowChangePin(true)} className="gap-1.5 text-muted-foreground hover:text-foreground">
             <KeyRound className="w-4 h-4" /> Change PIN
           </Button>

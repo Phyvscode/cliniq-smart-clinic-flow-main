@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, User, Search, X, ArrowRight, Plus, Activity } from "lucide-react";
+import { ArrowLeft, User, Search, X, ArrowRight, Plus, Activity, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useClinic } from "@/context/ClinicContext";
@@ -221,7 +221,7 @@ const DoctorDiagnosis = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const patientId = searchParams.get("patientId");
-  const { patients } = useClinic();
+  const { patients, refreshQueue, refreshPatients } = useClinic();
   const patient = patients.find(p => p.id === patientId)
     || (patients as any[]).find(p => p._patient?.id === patientId)?._patient;
 
@@ -360,6 +360,11 @@ const DoctorDiagnosis = () => {
             </p>
           </div>
         </div>
+        <button onClick={() => { refreshQueue(); refreshPatients(); }}
+          className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
+          title="Refresh">
+          <RefreshCw className="w-4 h-4" />
+        </button>
       </header>
 
       <div className="max-w-2xl mx-auto p-6 space-y-6 pb-32">

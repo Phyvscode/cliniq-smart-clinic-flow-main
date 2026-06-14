@@ -535,6 +535,11 @@ const DoctorPrescription = () => {
             {(savedPatient || current?.patient)?.name} · {(savedPatient || current?.patient)?.age} yrs
           </p>
         </div>
+        <button onClick={() => { refreshQueue(); refreshMedicines(); }}
+          className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
+          title="Refresh">
+          <RefreshCw className="w-4 h-4" />
+        </button>
       </header>
 
       <AnimatePresence mode="wait">
