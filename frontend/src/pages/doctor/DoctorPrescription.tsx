@@ -607,14 +607,20 @@ const DoctorPrescription = () => {
                 </AnimatePresence>
               </div>
 
-              {/* Print */}
+              {/* Print Prescription */}
+              <Button variant="outline" onClick={() => apiDownloadPrescription(savedRxId)}
+                className="w-full h-12 rounded-xl text-base font-medium gap-2" size="lg">
+                <Printer className="w-4 h-4" /> Print Prescription
+              </Button>
+
+              {/* Print / Download (checkbox kept for compat) */}
               <label className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 cursor-pointer transition-colors">
                 <input type="checkbox" checked={actionPrint} onChange={e => {
                   setActionPrint(e.target.checked);
                   if (e.target.checked) apiDownloadPrescription(savedRxId);
                 }} className="w-4 h-4 rounded accent-primary" />
                 <Download className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">Print / Download Prescription</span>
+                <span className="text-sm font-medium text-foreground">Download Prescription PDF</span>
               </label>
 
               {/* Send to Pharmacy */}
