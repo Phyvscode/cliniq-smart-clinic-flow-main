@@ -31,16 +31,11 @@ const LoginPage = () => {
           <span className="font-semibold text-gray-900 dark:text-white text-sm">ClinIQ</span>
           <span className="text-xs text-gray-400 font-light">os</span>
         </div>
-        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
             All systems nominal
           </span>
-          <span className="text-gray-300 dark:text-gray-700">|</span>
-          <button onClick={() => window.open("https://cliniq-admin.vercel.app", "_blank")}
-            className="hover:text-gray-900 dark:hover:text-white transition-colors">
-            Admin console
-          </button>
           <ThemeToggle />
         </div>
       </header>
