@@ -1,23 +1,24 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import ChangePinModal from "@/components/ChangePinModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Users, Phone, UserCheck, CheckCircle2, ChevronDown,
-  Trash2, RefreshCw, Search, UserX, ClipboardList, LogOut, KeyRound,
-  IndianRupee, Banknote, Smartphone, CreditCard, Plus, X, FlaskConical,
-  Calendar, FileBarChart, Download, PhoneCall, PhoneMissed, CheckCheck, RotateCcw,
+  Search, Bell, RefreshCw, X, UserPlus, Check, UserCheck,
+  Phone, ChevronDown, Users, UserX, Clock,
+  FlaskConical, Banknote, Smartphone, CreditCard, Plus,
+  IndianRupee, Download, FileBarChart, KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useClinic } from "@/context/ClinicContext";
 import { Patient } from "@/data/mockData";
-import { apiUpdatePatient } from "@/lib/api";
+import { apiUpdateQueueStatus } from "@/lib/api";
+import ReceptionSidebar from "@/components/reception/ReceptionSidebar";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import ChangePinModal from "@/components/ChangePinModal";
 
 const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:5000/api";
 const getToken = () => localStorage.getItem("cliniq_token");
 
-// ── Inline API helpers ────────────────────────────────────────────────────────
+// ── API helpers ───────────────────────────────────────────────────────────────
 const apiLookupPhone = async (phone: string) => {
   try {
     const res = await fetch(`${BASE_URL}/patients/phone/${encodeURIComponent(phone.trim())}`, {
@@ -30,7 +31,6 @@ const apiLookupPhone = async (phone: string) => {
     return p || null;
   } catch { return null; }
 };
-
 const apiAddToQueue = async (patientId: string, department: string) => {
   const res = await fetch(`${BASE_URL}/queue`, {
     method: "POST",
@@ -41,20 +41,6 @@ const apiAddToQueue = async (patientId: string, department: string) => {
   if (!res.ok) throw new Error(data.message || "Failed to add to queue");
   return data;
 };
-
-const apiCreatePatientDirect = async (body: object) => {
-  const res = await fetch(`${BASE_URL}/patients`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Failed to register patient");
-  const p = data.patient || data;
-  if (p._id && !p.id) p.id = String(p._id);
-  return p;
-};
-
 const apiCreatePayment = async (body: object) => {
   const res = await fetch(`${BASE_URL}/payments`, {
     method: "POST",
@@ -67,75 +53,51 @@ const apiCreatePayment = async (body: object) => {
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const COMMON_TESTS = [
-  { name: "Complete Blood Count (CBC)", fee: 300 },
-  { name: "Blood Sugar Fasting",        fee: 80  },
-  { name: "Blood Sugar PP",             fee: 80  },
-  { name: "HbA1c",                      fee: 400 },
-  { name: "Lipid Profile",              fee: 500 },
-  { name: "LFT",                        fee: 600 },
-  { name: "KFT",                        fee: 500 },
-  { name: "Thyroid Profile (T3/T4/TSH)",fee: 700 },
-  { name: "Urine Routine",              fee: 100 },
-  { name: "X-Ray Chest",               fee: 300 },
-  { name: "X-Ray",                      fee: 250 },
-  { name: "ECG",                        fee: 200 },
-  { name: "USG Abdomen",               fee: 800 },
-  { name: "CT Scan",                    fee: 3000},
-  { name: "MRI",                        fee: 5000},
-  { name: "Dengue Test",               fee: 600 },
-  { name: "Malaria Test",              fee: 150 },
-  { name: "Typhoid (Widal)",           fee: 200 },
-  { name: "Vitamin D",                 fee: 900 },
-  { name: "Vitamin B12",               fee: 700 },
-  { name: "CRP",                        fee: 400 },
-  { name: "ESR",                        fee: 100 },
+const DEPARTMENTS = [
+  "General Medicine","Pediatrics","Gynecology","Orthopedics",
+  "Dermatology","ENT","Cardiology","Neurology","Ophthalmology","Dentistry",
 ];
-
-const PAYMENT_METHODS = [
+const COMMON_TESTS = [
+  { name: "CBC", fee: 300 }, { name: "Blood Sugar Fasting", fee: 80 },
+  { name: "HbA1c", fee: 400 }, { name: "Lipid Profile", fee: 500 },
+  { name: "LFT", fee: 600 }, { name: "KFT", fee: 500 },
+  { name: "Thyroid Profile", fee: 700 }, { name: "Urine Routine", fee: 100 },
+  { name: "X-Ray Chest", fee: 300 }, { name: "ECG", fee: 200 },
+  { name: "USG Abdomen", fee: 800 }, { name: "CT Scan", fee: 3000 },
+  { name: "Dengue Test", fee: 600 }, { name: "Malaria Test", fee: 150 },
+  { name: "Vitamin D", fee: 900 }, { name: "Vitamin B12", fee: 700 },
+];
+const PAY_METHODS = [
   { key: "cash", label: "Cash",  icon: Banknote   },
   { key: "upi",  label: "UPI",   icon: Smartphone },
   { key: "card", label: "Card",  icon: CreditCard },
 ];
 
-const DEPARTMENTS = [
-  "General Medicine", "Pediatrics", "Gynecology", "Orthopedics",
-  "Dermatology", "ENT", "Cardiology", "Neurology", "Ophthalmology", "Dentistry",
-];
-
-type Step = "idle" | "found" | "new";
-type Tab  = "register" | "tests" | "queue" | "manage" | "followups" | "reports";
-
-const calculateAge = (dob: string): number => {
-  if (!dob) return 0;
+const calculateAge = (dob: string) => {
   const today = new Date(), birth = new Date(dob);
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
   return age;
 };
-
 const toDateInput = (val: any): string => {
   if (!val) return "";
   try { return new Date(val).toISOString().split("T")[0]; } catch { return ""; }
 };
+const displayAge = (p: any) => p?.dateOfBirth ? calculateAge(toDateInput(p.dateOfBirth)) : (p?.age ?? 0);
 
-const displayAge = (p: any) =>
-  p?.dateOfBirth ? calculateAge(toDateInput(p.dateOfBirth)) : (p?.age ?? 0);
-
-// ─── Register Tab (consultation only) ────────────────────────────────────────
-const RegisterTab = ({ onSuccess }: { onSuccess?: () => void }) => {
+// ── Register Modal ────────────────────────────────────────────────────────────
+const RegisterModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) => {
   const { addPatient, refreshQueue } = useClinic();
-
   const [department,    setDepartment]    = useState("");
   const [phone,         setPhone]         = useState("");
-  const [step,          setStep]          = useState<Step>("idle");
+  const [step,          setStep]          = useState<"idle"|"found"|"new">("idle");
   const [foundPatient,  setFoundPatient]  = useState<Patient | null>(null);
   const [name,          setName]          = useState("");
   const [dob,           setDob]           = useState("");
   const [gender,        setGender]        = useState<"Male"|"Female"|"Other"|"">("");
   const [loading,       setLoading]       = useState(false);
-  const [confirmation,  setConfirmation]  = useState<string | null>(null);
+  const [success,       setSuccess]       = useState("");
   const [error,         setError]         = useState("");
   const [noDoctorAlert, setNoDoctorAlert] = useState(false);
 
@@ -147,189 +109,157 @@ const RegisterTab = ({ onSuccess }: { onSuccess?: () => void }) => {
     setError("");
     const existing = await apiLookupPhone(phone.trim());
     if (existing) { setFoundPatient(existing); setStep("found"); }
-    else           { setFoundPatient(null);     setStep("new");   }
-  };
-
-  const resetForm = () => {
-    setPhone(""); setDepartment(""); setStep("idle");
-    setFoundPatient(null); setName(""); setDob(""); setGender(""); setError("");
+    else           { setFoundPatient(null); setStep("new"); }
   };
 
   const handleSubmit = async () => {
     if (!department) { setError("Please select a department."); return; }
     setError(""); setLoading(true);
-    const savedDept = department;
     try {
       let patient = foundPatient;
       if (!patient) {
-        if (!name.trim() || !dob || !gender) {
-          setError("Please fill in name, date of birth, and gender.");
-          setLoading(false); return;
-        }
+        if (!name.trim() || !dob || !gender) { setError("Fill in name, date of birth, and gender."); setLoading(false); return; }
         patient = await addPatient({
           name: name.trim(), dateOfBirth: dob,
-          age: calculateAge(dob), gender,
-          phone: phone.trim(), visitType: "OPD",
+          age: calculateAge(dob), gender, phone: phone.trim(), visitType: "OPD",
         } as Omit<Patient, "id">);
       }
-
-      // Check if department has doctors
       try {
-        const r = await fetch(`${BASE_URL}/auth/staff-list?role=doctor`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
+        const r = await fetch(`${BASE_URL}/auth/staff-list?role=doctor`, { headers: { Authorization: `Bearer ${getToken()}` } });
         const d = await r.json();
-        const docs = (d.staff || []).filter(
-          (doc: any) => doc.department === savedDept || doc.specialization === savedDept
-        );
+        const docs = (d.staff || []).filter((doc: any) => doc.department === department || doc.specialization === department);
         if (docs.length === 0) { setNoDoctorAlert(true); setLoading(false); return; }
       } catch {}
-
-      await apiAddToQueue(patient.id, savedDept);
+      await apiAddToQueue(patient.id, department);
       await refreshQueue();
-      const patientName = patient.name;
-      setConfirmation(`${patientName} added to ${savedDept} queue`);
-      // Small delay so user sees the confirmation, then full remount for clean state
-      setTimeout(() => onSuccess?.(), 2000);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong.");
-    } finally { setLoading(false); }
+      setSuccess(`${patient.name} added to ${department} queue`);
+      setTimeout(() => { onSuccess(); onClose(); }, 1500);
+    } catch (err: any) { setError(err.message || "Something went wrong."); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div className="max-w-lg mx-auto">
-      <AnimatePresence>
-        {confirmation && (
-          <motion.div initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0}}
-            className="flex items-start gap-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 mb-6">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <p className="font-medium text-foreground">{confirmation}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">Patient is now in the waiting list</p>
-            </div>
-            <button onClick={() => setConfirmation(null)} className="text-xs text-muted-foreground hover:text-foreground">Dismiss</button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <h2 className="text-xl font-bold text-foreground mb-1">Register Patient</h2>
-      <p className="text-sm text-muted-foreground mb-8">Select department and enter phone number to begin</p>
-
-      {/* Department */}
-      <div className="mb-6">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Department</label>
-        <div className="relative">
-          <select value={department} onChange={e => setDepartment(e.target.value)}
-            className="w-full h-12 rounded-xl border border-border bg-card text-foreground px-4 pr-10 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
-            <option value="">Select a department...</option>
-            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h2 className="text-xl font-serif text-gray-900 dark:text-white">Add patient to queue</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X className="w-4 h-4" /></button>
         </div>
-      </div>
-
-      {/* Phone */}
-      <div className="mb-6">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Patient Phone Number</label>
-        <div className="relative">
-          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input type="tel" placeholder="Enter phone number..." value={phone}
-            onChange={e => { setPhone(e.target.value); setStep("idle"); setFoundPatient(null); }}
-            onBlur={handlePhoneLookup} onKeyDown={e => e.key === "Enter" && handlePhoneLookup()}
-            className="pl-10 h-12 rounded-xl" />
-        </div>
-        <p className="text-xs text-muted-foreground mt-1.5">Press Enter or click away to look up</p>
-      </div>
-
-      <AnimatePresence mode="wait">
-        {step === "found" && foundPatient && (
-          <motion.div key="found" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0}}
-            className="mb-6 bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <UserCheck className="w-5 h-5 text-primary" />
+        <div className="px-6 py-5 space-y-5 max-h-[75vh] overflow-y-auto">
+          {success && (
+            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-700 rounded-xl px-4 py-3">
+              <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+              <p className="text-sm text-emerald-700 dark:text-emerald-400">{success}</p>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground">{foundPatient.name}</p>
-              <p className="text-xs text-muted-foreground">{displayAge(foundPatient)} yrs · {foundPatient.gender} · {foundPatient.phone}</p>
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">✓ Existing patient — no details needed</p>
+          )}
+          {/* Department */}
+          <div>
+            <label className="text-[10px] font-semibold tracking-widest text-gray-400 mb-2 block">DEPARTMENT</label>
+            <div className="relative">
+              <select value={department} onChange={e => setDepartment(e.target.value)}
+                className="w-full h-11 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-4 pr-9 text-sm appearance-none focus:outline-none focus:border-gray-400 cursor-pointer">
+                <option value="">Select a department...</option>
+                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
-          </motion.div>
-        )}
-        {step === "new" && (
-          <motion.div key="new" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="mb-6 space-y-5">
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">New patient — please fill in their details</p>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Full Name</label>
-              <Input placeholder="Patient's full name" value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Date of Birth</label>
-              <Input type="date" value={dob} min={minDate} max={maxDate} onChange={e => setDob(e.target.value)} className="h-12 rounded-xl" />
-              {dob && calculateAge(dob) >= 0 && (
-                <p className="text-xs text-primary font-medium mt-1.5">Age: {calculateAge(dob)} year{calculateAge(dob) !== 1 ? "s" : ""} old</p>
-              )}
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Gender</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["Male","Female","Other"] as const).map(g => (
-                  <button key={g} type="button" onClick={() => setGender(g)}
-                    className={`h-12 rounded-xl border-2 text-sm font-medium transition-all ${
-                      gender === g ? "border-primary bg-primary/5 text-primary" : "border-border bg-card text-muted-foreground hover:border-primary/40"
-                    }`}>{g}</button>
-                ))}
+          </div>
+          {/* Phone */}
+          <div>
+            <label className="text-[10px] font-semibold tracking-widest text-gray-400 mb-2 block">PHONE NUMBER</label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input type="tel" placeholder="Enter phone number…" value={phone}
+                  onChange={e => { setPhone(e.target.value); setStep("idle"); setFoundPatient(null); }}
+                  onKeyDown={e => e.key === "Enter" && handlePhoneLookup()}
+                  className="pl-9 h-11 rounded-xl" />
               </div>
+              <button onClick={handlePhoneLookup} className="h-11 px-4 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-white/20 transition-colors">
+                Search
+              </button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
 
-      {error && <p className="text-sm text-destructive mb-4">{error}</p>}
+          <AnimatePresence mode="wait">
+            {step === "found" && foundPatient && (
+              <motion.div key="found" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-700 rounded-xl px-4 py-3 flex items-center gap-3">
+                <UserCheck className="w-5 h-5 text-emerald-500 shrink-0" />
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">{foundPatient.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{displayAge(foundPatient)} yrs · {foundPatient.gender} · existing patient</p>
+                </div>
+              </motion.div>
+            )}
+            {step === "new" && (
+              <motion.div key="new" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-2.5">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">New patient — please fill in their details</p>
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold tracking-widest text-gray-400 mb-2 block">FULL NAME</label>
+                  <Input placeholder="Patient's full name" value={name} onChange={e => setName(e.target.value)} className="h-11 rounded-xl" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold tracking-widest text-gray-400 mb-2 block">DATE OF BIRTH</label>
+                  <Input type="date" value={dob} min={minDate} max={maxDate} onChange={e => setDob(e.target.value)} className="h-11 rounded-xl" />
+                  {dob && <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">Age: {calculateAge(dob)} yrs</p>}
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold tracking-widest text-gray-400 mb-2 block">GENDER</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["Male","Female","Other"] as const).map(g => (
+                      <button key={g} type="button" onClick={() => setGender(g)}
+                        className={`h-11 rounded-xl border text-sm font-medium transition-all ${gender === g ? "border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400"}`}>
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-      {step !== "idle" && (
-        <Button onClick={handleSubmit} disabled={loading || !department || !phone}
-          className="w-full h-12 rounded-xl text-base font-medium" size="lg">
-          {loading ? "Adding to queue..." : "Add to Queue"}
-        </Button>
-      )}
+          {error && <p className="text-sm text-red-500">{error}</p>}
 
-      {/* No doctor alert */}
-      {noDoctorAlert && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <motion.div initial={{opacity:0,scale:.95}} animate={{opacity:1,scale:1}}
-            className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
-            <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
-              <UserX className="w-7 h-7 text-amber-500" />
-            </div>
-            <h3 className="font-semibold text-foreground text-lg mb-2">No Doctors Available</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              There are no doctors in <strong>{department}</strong>. Ask the admin to add doctors to this department first.
-            </p>
-            <Button className="w-full h-11 rounded-xl" onClick={() => setNoDoctorAlert(false)}>OK</Button>
-          </motion.div>
+          {step !== "idle" && (
+            <button onClick={handleSubmit} disabled={loading || !department || !phone}
+              className="w-full h-11 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              {loading ? <><RefreshCw className="w-4 h-4 animate-spin" /> Adding…</> : <><UserPlus className="w-4 h-4" /> Add to Queue</>}
+            </button>
+          )}
         </div>
-      )}
+
+        {/* No-doctor alert */}
+        {noDoctorAlert && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl">
+              <UserX className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">No Doctors Available</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">No doctors in <strong>{department}</strong>. Ask admin to add doctors to this department first.</p>
+              <button onClick={() => setNoDoctorAlert(false)} className="w-full h-10 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-medium text-sm">OK</button>
+            </motion.div>
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 };
 
-// ─── Tests Tab ────────────────────────────────────────────────────────────────
-const TestsTab = () => {
+// ── Tests Modal ───────────────────────────────────────────────────────────────
+const TestsModal = ({ onClose }: { onClose: () => void }) => {
   const { addPatient } = useClinic();
-
   const [phone,         setPhone]         = useState("");
-  const [step,          setStep]          = useState<Step>("idle");
+  const [step,          setStep]          = useState<"idle"|"found"|"new">("idle");
   const [patient,       setPatient]       = useState<any>(null);
   const [name,          setName]          = useState("");
   const [dob,           setDob]           = useState("");
   const [gender,        setGender]        = useState<"Male"|"Female"|"Other"|"">("");
-  const [searching,     setSearching]     = useState(false);
   const [selectedTests, setSelectedTests] = useState<{name:string;fee:number}[]>([]);
   const [testSearch,    setTestSearch]    = useState("");
-  const [customTest,    setCustomTest]    = useState("");
-  const [customFee,     setCustomFee]     = useState("");
   const [payMethod,     setPayMethod]     = useState("cash");
   const [saving,        setSaving]        = useState(false);
   const [success,       setSuccess]       = useState("");
@@ -337,774 +267,369 @@ const TestsTab = () => {
 
   const maxDate = new Date().toISOString().split("T")[0];
   const minDate = `${new Date().getFullYear() - 120}-01-01`;
+  const total = selectedTests.reduce((s, t) => s + t.fee, 0);
+  const filtered = COMMON_TESTS.filter(t => t.name.toLowerCase().includes(testSearch.toLowerCase()) && !selectedTests.some(s => s.name === t.name));
 
-  const handlePhoneLookup = async () => {
+  const handleLookup = async () => {
     if (phone.trim().length < 7) return;
-    setSearching(true); setPatient(null); setError("");
     const found = await apiLookupPhone(phone.trim());
     if (found) { setPatient(found); setStep("found"); }
-    else       { setStep("new"); }
-    setSearching(false);
+    else        { setStep("new"); }
   };
 
-  const handleRegisterAndCollect = async () => {
-    if (!name.trim() || !dob || !gender) { setError("Please fill in all patient details."); return; }
+  const handleRegister = async () => {
+    if (!name.trim() || !dob || !gender) { setError("Fill in all patient details."); return; }
     try {
-      const newPatient = await apiCreatePatientDirect({
-        name: name.trim(), dateOfBirth: dob,
-        age: calculateAge(dob), gender, phone: phone.trim(), visitType: "OPD",
-      });
-      setPatient(newPatient); setStep("found");
-    } catch (e: any) { setError(e.message || "Failed to register patient"); }
+      const p = await addPatient({ name: name.trim(), dateOfBirth: dob, age: calculateAge(dob), gender, phone: phone.trim(), visitType: "OPD" } as Omit<Patient, "id">);
+      setPatient(p); setStep("found");
+    } catch (e: any) { setError(e.message); }
   };
-
-  const filtered = COMMON_TESTS.filter(t =>
-    t.name.toLowerCase().includes(testSearch.toLowerCase()) &&
-    !selectedTests.some(s => s.name === t.name)
-  );
-  const total = selectedTests.reduce((s, t) => s + t.fee, 0);
 
   const handleCollect = async () => {
-    if (!patient) { setError("Please search for a patient first."); return; }
-    if (selectedTests.length === 0) { setError("Please add at least one test."); return; }
+    if (!patient || selectedTests.length === 0) return;
     setSaving(true); setError("");
     try {
       await apiCreatePayment({
-        patientId: patient.id || patient._id,
-        amount:    total,
-        type:      "test",
-        method:    payMethod,
-        notes:     selectedTests.map(t => `${t.name}: ₹${t.fee}`).join(" | "),
+        patientId: patient.id || patient._id, amount: total,
+        type: "test", method: payMethod,
+        notes: selectedTests.map(t => `${t.name}: ₹${t.fee}`).join(" | "),
       });
       setSuccess(`₹${total} collected from ${patient.name}`);
-      setPhone(""); setPatient(null); setStep("idle");
-      setSelectedTests([]); setTestSearch(""); setName(""); setDob(""); setGender("");
-      setTimeout(() => setSuccess(""), 4000);
-    } catch (e: any) { setError(e.message || "Payment failed"); }
+      setPhone(""); setPatient(null); setStep("idle"); setSelectedTests([]);
+      setTimeout(() => { setSuccess(""); onClose(); }, 2000);
+    } catch (e: any) { setError(e.message); }
     finally { setSaving(false); }
   };
 
   return (
-    <div className="max-w-lg mx-auto">
-      <h2 className="text-xl font-bold text-foreground mb-1">Tests &amp; Procedures</h2>
-      <p className="text-sm text-muted-foreground mb-6">Search patient by phone, select tests and collect fee</p>
-
-      {success && (
-        <motion.div initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}}
-          className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 mb-6">
-          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{success}</p>
-        </motion.div>
-      )}
-
-      {/* Phone */}
-      <div className="mb-6">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Patient Phone Number</label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input type="tel" placeholder="Enter phone number..." value={phone}
-              onChange={e => { setPhone(e.target.value); setStep("idle"); setPatient(null); setError(""); }}
-              onKeyDown={e => e.key === "Enter" && handlePhoneLookup()}
-              className="pl-10 h-12 rounded-xl" />
-          </div>
-          <Button onClick={handlePhoneLookup} disabled={searching || phone.trim().length < 7} className="h-12 px-5 rounded-xl gap-2">
-            {searching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Search
-          </Button>
+    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h2 className="text-xl font-serif text-gray-900 dark:text-white">Tests &amp; Billing</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X className="w-4 h-4" /></button>
         </div>
-      </div>
-
-      <AnimatePresence mode="wait">
-        {/* Existing patient found */}
-        {step === "found" && patient && (
-          <motion.div key="found" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0}}
-            className="mb-6 bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <UserCheck className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">{patient.name}</p>
-              <p className="text-xs text-muted-foreground">{patient.phone} · {patient.gender}</p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* New patient form */}
-        {step === "new" && !patient && (
-          <motion.div key="new" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="mb-6 space-y-4">
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">New patient — fill in details to register</p>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Full Name</label>
-              <Input placeholder="Patient's full name" value={name} onChange={e => setName(e.target.value)} className="h-11 rounded-xl" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Date of Birth</label>
-              <Input type="date" value={dob} min={minDate} max={maxDate} onChange={e => setDob(e.target.value)} className="h-11 rounded-xl" />
-              {dob && <p className="text-xs text-primary font-medium mt-1">Age: {calculateAge(dob)} yrs</p>}
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Gender</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["Male","Female","Other"] as const).map(g => (
-                  <button key={g} type="button" onClick={() => setGender(g)}
-                    className={`h-11 rounded-xl border-2 text-sm font-medium transition-all ${
-                      gender === g ? "border-primary bg-primary/5 text-primary" : "border-border bg-card text-muted-foreground hover:border-primary/40"
-                    }`}>{g}</button>
-                ))}
-              </div>
-            </div>
-            <Button onClick={handleRegisterAndCollect} disabled={!name.trim()||!dob||!gender}
-              className="w-full h-11 rounded-xl">Register Patient</Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Tests section — only show after patient is confirmed */}
-      {step === "found" && patient && (
-        <motion.div initial={{opacity:0}} animate={{opacity:1}} className="space-y-5">
-          {/* Selected tests */}
-          {selectedTests.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block">Selected Tests</label>
-              {selectedTests.map((t, i) => (
-                <div key={i} className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2.5">
-                  <span className="flex-1 text-sm font-medium text-foreground">{t.name}</span>
-                  <div className="flex items-center gap-1">
-                    <IndianRupee className="w-3 h-3 text-muted-foreground" />
-                    <input type="number" min="0" value={t.fee}
-                      onChange={e => setSelectedTests(prev => prev.map((x,j) => j===i ? {...x,fee:Number(e.target.value)} : x))}
-                      className="w-20 h-7 text-sm text-right bg-background border border-border rounded-lg px-2 focus:outline-none focus:ring-1 focus:ring-ring" />
-                  </div>
-                  <button onClick={() => setSelectedTests(prev => prev.filter((_,j) => j!==i))}
-                    className="w-6 h-6 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-              <div className="flex items-center justify-between px-1 pt-1">
-                <span className="text-sm text-muted-foreground">Total</span>
-                <span className="text-lg font-bold text-primary">₹{total}</span>
-              </div>
+        <div className="px-6 py-5 space-y-5 max-h-[75vh] overflow-y-auto">
+          {success && (
+            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-700 rounded-xl px-4 py-3">
+              <Check className="w-4 h-4 text-emerald-500" />
+              <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">{success}</p>
             </div>
           )}
-
-          {/* Search tests */}
+          {/* Phone */}
           <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Add Tests</label>
-            <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Search tests (CBC, X-Ray, ECG...)" value={testSearch}
-                onChange={e => setTestSearch(e.target.value)} className="pl-9 h-10 rounded-xl text-sm" />
-            </div>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {filtered.map(t => (
-                <button key={t.name} onClick={() => setSelectedTests(prev => [...prev, {...t}])}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left">
-                  <span className="text-sm text-foreground">{t.name}</span>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                    <IndianRupee className="w-3 h-3" />{t.fee}
-                    <Plus className="w-3.5 h-3.5 text-primary ml-1" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Custom test */}
-          <div className="border-t border-border pt-4">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Add Custom Test</label>
+            <label className="text-[10px] font-semibold tracking-widest text-gray-400 mb-2 block">PHONE NUMBER</label>
             <div className="flex gap-2">
-              <Input placeholder="Test name" value={customTest} onChange={e => setCustomTest(e.target.value)} className="h-10 rounded-xl text-sm flex-1" />
-              <div className="relative w-28">
-                <IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                <Input type="number" placeholder="Fee" value={customFee} onChange={e => setCustomFee(e.target.value)} className="h-10 rounded-xl text-sm pl-7" />
+              <div className="relative flex-1">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input type="tel" placeholder="Enter phone number…" value={phone}
+                  onChange={e => { setPhone(e.target.value); setStep("idle"); setPatient(null); }}
+                  onKeyDown={e => e.key === "Enter" && handleLookup()}
+                  className="pl-9 h-11 rounded-xl" />
               </div>
-              <button onClick={() => {
-                if (!customTest.trim()) return;
-                setSelectedTests(prev => [...prev, { name: customTest.trim(), fee: Number(customFee||0) }]);
-                setCustomTest(""); setCustomFee("");
-              }} className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shrink-0">
-                <Plus className="w-4 h-4 text-primary-foreground" />
-              </button>
+              <button onClick={handleLookup} className="h-11 px-4 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-white/20 transition-colors">Search</button>
             </div>
           </div>
 
-          {/* Payment method */}
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Payment Method</label>
-            <div className="flex gap-2">
-              {PAYMENT_METHODS.map(m => (
-                <button key={m.key} onClick={() => setPayMethod(m.key)}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 text-sm font-medium transition-all ${
-                    payMethod===m.key ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/30"
-                  }`}>
-                  <m.icon className="w-3.5 h-3.5" />{m.label}
+          <AnimatePresence mode="wait">
+            {step === "found" && patient && (
+              <motion.div key="found" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-700 rounded-xl px-4 py-3 flex items-center gap-3">
+                <UserCheck className="w-5 h-5 text-emerald-500 shrink-0" />
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">{patient.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{patient.phone} · {patient.gender}</p>
+                </div>
+              </motion.div>
+            )}
+            {step === "new" && !patient && (
+              <motion.div key="new" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-3">
+                <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-2.5">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">New patient — fill in details</p>
+                </div>
+                <Input placeholder="Full name" value={name} onChange={e => setName(e.target.value)} className="h-11 rounded-xl" />
+                <Input type="date" value={dob} min={minDate} max={maxDate} onChange={e => setDob(e.target.value)} className="h-11 rounded-xl" />
+                <div className="grid grid-cols-3 gap-2">
+                  {(["Male","Female","Other"] as const).map(g => (
+                    <button key={g} type="button" onClick={() => setGender(g)}
+                      className={`h-11 rounded-xl border text-sm font-medium transition-all ${gender === g ? "border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400"}`}>
+                      {g}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={handleRegister} disabled={!name.trim()||!dob||!gender}
+                  className="w-full h-11 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-200 dark:hover:bg-white/20 transition-colors disabled:opacity-40">
+                  Register Patient
                 </button>
-              ))}
-            </div>
-          </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button onClick={handleCollect} disabled={saving || selectedTests.length === 0}
-            className="w-full h-12 rounded-xl text-base font-medium gap-2">
-            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Collect ₹${total}`}
-          </Button>
-        </motion.div>
-      )}
+          {step === "found" && patient && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              {selectedTests.length > 0 && (
+                <div className="space-y-1.5">
+                  {selectedTests.map((t, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5">
+                      <span className="flex-1 text-sm text-gray-900 dark:text-white">{t.name}</span>
+                      <div className="flex items-center gap-1">
+                        <IndianRupee className="w-3 h-3 text-gray-400" />
+                        <input type="number" value={t.fee}
+                          onChange={e => setSelectedTests(prev => prev.map((x,j) => j===i ? {...x,fee:Number(e.target.value)} : x))}
+                          className="w-16 h-6 text-xs text-right bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 focus:outline-none" />
+                      </div>
+                      <button onClick={() => setSelectedTests(prev => prev.filter((_,j) => j!==i))} className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex justify-between px-1">
+                    <span className="text-xs text-gray-400">Total</span>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">₹{total}</span>
+                  </div>
+                </div>
+              )}
+              <div>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                  <Input placeholder="Search tests…" value={testSearch} onChange={e => setTestSearch(e.target.value)} className="pl-8 h-9 rounded-xl text-sm" />
+                </div>
+                <div className="max-h-36 overflow-y-auto space-y-0.5">
+                  {filtered.map(t => (
+                    <button key={t.name} onClick={() => setSelectedTests(prev => [...prev, {...t}])}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-left">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{t.name}</span>
+                      <span className="text-xs text-gray-400 flex items-center gap-0.5"><IndianRupee className="w-3 h-3" />{t.fee}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {PAY_METHODS.map(m => (
+                  <button key={m.key} onClick={() => setPayMethod(m.key)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${payMethod===m.key ? "border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900" : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400"}`}>
+                    <m.icon className="w-3 h-3" />{m.label}
+                  </button>
+                ))}
+              </div>
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <button onClick={handleCollect} disabled={saving || selectedTests.length === 0}
+                className="w-full h-11 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors disabled:opacity-40">
+                {saving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processing…</> : `Collect ₹${total}`}
+              </button>
+            </motion.div>
+          )}
+        </div>
+      </motion.div>
     </div>
   );
 };
 
-// ─── Queue Tab ────────────────────────────────────────────────────────────────
-const QueueTab = () => {
-  const { queue, patients, nextPatient, removeFromQueue } = useClinic();
-  const activeQueue = queue.filter(q => q.status !== "done");
-  const [removing, setRemoving] = useState<string | null>(null);
+// ── Main Component ────────────────────────────────────────────────────────────
+const ReceptionDashboard = () => {
+  const { queue, patients, refreshQueue, refreshPatients, removeFromQueue } = useClinic();
+  const [search,          setSearch]          = useState("");
+  const [showRegister,    setShowRegister]    = useState(false);
+  const [showTests,       setShowTests]       = useState(false);
+  const [showChangePin,   setShowChangePin]   = useState(false);
+  const [markingDone,     setMarkingDone]     = useState<string | null>(null);
+  const [removing,        setRemoving]        = useState<string | null>(null);
+  const [registerKey,     setRegisterKey]     = useState(0);
 
-  const handleRemove = async (entryId: string, patientName: string) => {
-    if (!confirm(`Remove ${patientName} from the queue?`)) return;
+  useEffect(() => {
+    refreshQueue(); refreshPatients();
+    const id = setInterval(() => { refreshQueue(); refreshPatients(); }, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  const rows = queue
+    .map(q => ({
+      entry:   q,
+      patient: (q as any)._patient || patients.find(p => p.id === q.patientId) || null,
+      doctor:  (q as any)._doctor || (q as any).doctor || null,
+    }))
+    .filter(r => r.patient)
+    .filter(r => !search || r.patient!.name.toLowerCase().includes(search.toLowerCase()));
+
+  const waitingCount   = rows.filter(r => r.entry.status === "waiting").length;
+  const inRoomCount    = rows.filter(r => r.entry.status === "in-consultation").length;
+  const completedCount = rows.filter(r => r.entry.status === "done").length;
+
+  const handleMarkDone = async (entryId: string) => {
+    setMarkingDone(entryId);
+    try { await apiUpdateQueueStatus(entryId, "done"); await refreshQueue(); }
+    catch {}
+    finally { setMarkingDone(null); }
+  };
+  const handleRemove = async (entryId: string) => {
     setRemoving(entryId);
     try { await removeFromQueue(entryId); }
-    catch (err: any) { alert(err.message || "Failed to remove"); }
+    catch {}
     finally { setRemoving(null); }
   };
 
   return (
-    <div className="max-w-lg mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">{activeQueue.length} in Queue</h2>
-          <p className="text-sm text-muted-foreground">Today's waiting list</p>
+    <div className="flex h-screen bg-[#f5f5fa] dark:bg-[#0a0a0f] overflow-hidden">
+      <ReceptionSidebar active="reception" />
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top bar */}
+        <div className="bg-white dark:bg-[#0d0d1a] border-b border-gray-100 dark:border-white/5 px-6 py-3 flex items-center gap-3 shrink-0">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search patients, doctors, actions..."
+              className="w-full h-9 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg pl-9 pr-10 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:border-gray-300 dark:focus:border-white/20 transition-colors" />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-300 dark:text-gray-700 border border-gray-200 dark:border-gray-700 rounded px-1">⌘K</span>
+          </div>
+          <ThemeToggle />
+          <button onClick={() => setShowChangePin(true)} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" title="Change PIN">
+            <KeyRound className="w-4 h-4" />
+          </button>
+          <button onClick={() => { setShowTests(true); }} className="h-9 px-4 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 flex items-center gap-1.5 transition-colors">
+            <FlaskConical className="w-3.5 h-3.5" /> Tests
+          </button>
+          <button className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+            <Bell className="w-4 h-4" />
+          </button>
         </div>
-        <Button onClick={nextPatient} disabled={!activeQueue.find(q => q.status === "in-consultation")}
-          className="gap-2 rounded-xl" size="sm">Next Patient</Button>
-      </div>
-      <div className="space-y-2">
-        {activeQueue.map((entry, i) => {
-          const patient = patients.find(p => p.id === entry.patientId);
-          if (!patient) return null;
-          const isCurrent = entry.status === "in-consultation";
-          return (
-            <motion.div key={entry.id} layout initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:i*0.04}}
-              className={`flex items-center gap-3 p-4 rounded-xl transition-all ${
-                isCurrent ? "bg-primary/10 border-2 border-primary/30" : "bg-card border border-border"
-              }`}>
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg font-bold shrink-0 ${
-                isCurrent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}>{entry.queueNumber}</div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground">{patient.name}</p>
-                <p className="text-xs text-muted-foreground">{displayAge(patient)} yrs · {patient.gender}</p>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-8 py-8">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+            {/* Heading */}
+            <div className="flex items-start justify-between gap-4 mb-8">
+              <div>
+                <p className="text-[11px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-2">
+                  LIVE QUEUE · {rows.length} PATIENT{rows.length !== 1 ? "S" : ""}
+                </p>
+                <h1 className="text-4xl lg:text-5xl font-serif text-gray-900 dark:text-white leading-tight mb-1.5">
+                  Front desk is{" "}
+                  <em className="text-gray-400 dark:text-gray-600 italic font-serif">ready</em>
+                  {" "}for the day.
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Register a patient and they'll appear instantly in the live queue.</p>
               </div>
-              {isCurrent && <span className="text-xs font-medium bg-primary text-primary-foreground px-2.5 py-1 rounded-full">Now</span>}
-              <button onClick={() => handleRemove(entry.id, patient.name)} disabled={removing === entry.id}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
-                {removing === entry.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              <button onClick={() => { setShowRegister(true); setRegisterKey(k => k + 1); }}
+                className="h-11 px-5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold text-sm flex items-center gap-2 hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors shrink-0 mt-1">
+                <UserPlus className="w-4 h-4" /> Add patient to queue
               </button>
-            </motion.div>
-          );
-        })}
-        {activeQueue.length === 0 && (
-          <div className="text-center py-16 text-muted-foreground">
-            <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">Queue is empty</p>
-            <p className="text-sm">Add patients from the Register tab</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+            </div>
 
-// ─── Manage Tab ───────────────────────────────────────────────────────────────
-const ManageTab = () => {
-  const { findPatientByPhone, refreshPatients } = useClinic();
-  const [searchPhone, setSearchPhone] = useState("");
-  const [found,       setFound]       = useState<Patient | null>(null);
-  const [searched,    setSearched]    = useState(false);
-  const [name,        setName]        = useState("");
-  const [dob,         setDob]         = useState("");
-  const [gender,      setGender]      = useState<"Male"|"Female"|"Other"|"">("");
-  const [phone,       setPhone]       = useState("");
-  const [saving,      setSaving]      = useState(false);
-  const [success,     setSuccess]     = useState("");
-  const [error,       setError]       = useState("");
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              {[
+                { label: "WAITING",    value: waitingCount,   sub: "in lobby now",    icon: Clock    },
+                { label: "IN ROOM",    value: inRoomCount,    sub: "active consults",  icon: Users    },
+                { label: "COMPLETED",  value: completedCount, sub: "seen today",        icon: Check   },
+              ].map(s => (
+                <div key={s.label} className="bg-white dark:bg-[#0d0d1a] border border-gray-200 dark:border-white/5 rounded-2xl p-6 flex flex-col">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600">{s.label}</p>
+                    <s.icon className="w-4 h-4 text-gray-300 dark:text-gray-700" strokeWidth={1.5} />
+                  </div>
+                  <p className="text-5xl font-serif text-gray-900 dark:text-white mb-1">{s.value}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-600">{s.sub}</p>
+                </div>
+              ))}
+            </div>
 
-  const maxDate = new Date().toISOString().split("T")[0];
-  const minDate = `${new Date().getFullYear() - 120}-01-01`;
+            {/* Queue table */}
+            {rows.length === 0 ? (
+              <div className="bg-white dark:bg-[#0d0d1a] rounded-2xl border border-gray-200 dark:border-white/5 py-16 text-center">
+                <Users className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-700" strokeWidth={1.5} />
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  {search ? "No patients match your search." : "Queue is empty. Register a patient to begin."}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-[#0d0d1a] rounded-2xl border border-gray-200 dark:border-white/5 overflow-hidden">
+                {rows.map((row, i) => {
+                  const isDone   = row.entry.status === "done";
+                  const isInRoom = row.entry.status === "in-consultation";
+                  const p        = row.patient!;
+                  const docName  = row.doctor?.name || (row.entry as any).doctorName || "";
+                  const dept     = (row.entry as any).department || (row.doctor as any)?.specialization || "General Medicine";
+                  const referred = (row.entry as any).referredBy;
 
-  const handleSearch = () => {
-    setError(""); setSuccess(""); setSearched(true);
-    const p = findPatientByPhone(searchPhone.trim());
-    if (p) { setFound(p); setName(p.name); setDob(toDateInput((p as any).dateOfBirth)); setGender(p.gender); setPhone(p.phone); }
-    else   { setFound(null); }
-  };
+                  return (
+                    <motion.div key={row.entry.id}
+                      initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
+                      className={`flex items-center gap-5 px-6 py-4 ${i > 0 ? "border-t border-gray-100 dark:border-white/5" : ""}`}>
+                      {/* Token */}
+                      <div className="w-20 shrink-0">
+                        <p className="text-[9px] font-semibold tracking-widest text-gray-400 dark:text-gray-600">TOKEN</p>
+                        <p className="text-2xl font-serif text-gray-900 dark:text-white">#{row.entry.queueNumber || "—"}</p>
+                      </div>
 
-  const handleSave = async () => {
-    if (!found) return;
-    if (!name.trim() || !dob || !gender || !phone.trim()) { setError("All fields are required."); return; }
-    setSaving(true); setError(""); setSuccess("");
-    try {
-      await apiUpdatePatient(found.id, { name: name.trim(), dateOfBirth: dob, age: calculateAge(dob), gender, phone: phone.trim() });
-      await refreshPatients();
-      setSuccess("Patient information updated successfully.");
-    } catch (err: any) { setError(err.message || "Failed to update patient."); }
-    finally { setSaving(false); }
-  };
+                      {/* Patient */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${isDone ? "text-gray-400 dark:text-gray-600" : "text-gray-900 dark:text-white"}`}>
+                          {p.name}
+                          <span className="font-normal text-gray-400 dark:text-gray-600"> · {(p as any).gender?.charAt(0) || "?"}</span>
+                          {(p as any).age && <span className="font-normal text-gray-400 dark:text-gray-600">{(p as any).age}M</span>}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-600 truncate">
+                          {p.phone || "—"}
+                          {referred ? ` · Referred by Dr. ${referred}` : ""}
+                        </p>
+                      </div>
 
-  return (
-    <div className="max-w-lg mx-auto">
-      <h2 className="text-xl font-bold text-foreground mb-1">Manage Patient Info</h2>
-      <p className="text-sm text-muted-foreground mb-8">Search by phone number to edit patient details</p>
-      <div className="mb-6">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Search by Phone</label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input type="tel" placeholder="Enter phone number..." value={searchPhone}
-              onChange={e => { setSearchPhone(e.target.value); setSearched(false); setFound(null); }}
-              onKeyDown={e => e.key === "Enter" && handleSearch()} className="pl-10 h-12 rounded-xl" />
-          </div>
-          <Button onClick={handleSearch} className="h-12 px-5 rounded-xl">Search</Button>
+                      {/* Doctor */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${isDone ? "text-gray-400 dark:text-gray-600" : "text-gray-700 dark:text-gray-300"}`}>
+                          {docName ? `Dr. ${docName}` : "—"}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-600">{dept}</p>
+                      </div>
+
+                      {/* Status */}
+                      <div className="w-24 shrink-0">
+                        {isDone ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-gray-600">Done</span>
+                        ) : isInRoom ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> In room
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" /> Waiting
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {!isDone && isInRoom && (
+                          <button onClick={() => handleMarkDone(row.entry.id)} disabled={markingDone === row.entry.id}
+                            className="h-8 px-3 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 transition-colors disabled:opacity-40 flex items-center gap-1.5">
+                            {markingDone === row.entry.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : null}
+                            Mark done
+                          </button>
+                        )}
+                        <button onClick={() => handleRemove(row.entry.id)} disabled={removing === row.entry.id}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 border border-gray-200 dark:border-gray-700 transition-all">
+                          {removing === row.entry.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
         </div>
       </div>
-      <AnimatePresence mode="wait">
-        {searched && !found && (
-          <motion.div key="nf" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex flex-col items-center py-10 text-muted-foreground">
-            <UserX className="w-10 h-10 mb-3 opacity-40" />
-            <p className="font-medium">No patient found</p>
-            <p className="text-sm">No patient registered with that number</p>
-          </motion.div>
-        )}
-        {found && (
-          <motion.div key="edit" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="space-y-5">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Full Name</label>
-              <Input value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Phone Number</label>
-              <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="h-12 rounded-xl" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Date of Birth</label>
-              <Input type="date" value={dob} min={minDate} max={maxDate} onChange={e => setDob(e.target.value)} className="h-12 rounded-xl" />
-              {dob && <p className="text-xs text-primary font-medium mt-1.5">Age: {calculateAge(dob)} years old</p>}
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Gender</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["Male","Female","Other"] as const).map(g => (
-                  <button key={g} type="button" onClick={() => setGender(g)}
-                    className={`h-12 rounded-xl border-2 text-sm font-medium transition-all ${
-                      gender===g ? "border-primary bg-primary/5 text-primary" : "border-border bg-card text-muted-foreground hover:border-primary/40"
-                    }`}>{g}</button>
-                ))}
-              </div>
-            </div>
-            {error   && <p className="text-sm text-destructive">{error}</p>}
-            {success && <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">{success}</p>}
-            <div className="flex gap-3 pt-1">
-              <Button variant="outline" onClick={() => { setName(found.name); setDob(toDateInput((found as any).dateOfBirth)); setGender(found.gender); setPhone(found.phone); }}
-                className="flex-1 h-12 rounded-xl gap-2"><RefreshCw className="w-4 h-4" /> Reset</Button>
-              <Button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl">
-                {saving ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
-          </motion.div>
+
+      {/* Modals */}
+      <AnimatePresence>
+        {showRegister && (
+          <RegisterModal key={registerKey} onClose={() => setShowRegister(false)} onSuccess={() => { refreshQueue(); }} />
         )}
       </AnimatePresence>
-    </div>
-  );
-};
-
-// ─── Follow-ups Tab (Feature 6) ───────────────────────────────────────────────
-const FOLLOWUP_STATUSES = [
-  { key: "called",       label: "Called",       icon: PhoneCall,    color: "text-emerald-500" },
-  { key: "not_answered", label: "Not Answered", icon: PhoneMissed,  color: "text-red-500"     },
-  { key: "rescheduled",  label: "Rescheduled",  icon: RotateCcw,    color: "text-amber-500"   },
-  { key: "confirmed",    label: "Confirmed",    icon: CheckCheck,   color: "text-blue-500"    },
-];
-
-const FollowupsTab = () => {
-  const [followups, setFollowups] = useState<any[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [statuses,  setStatuses]  = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${BASE_URL}/prescriptions/followups`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        const data = await res.json();
-        setFollowups(data.followups || []);
-      } catch { setFollowups([]); }
-      setLoading(false);
-    };
-    load();
-  }, []);
-
-  const today    = new Date().toISOString().split("T")[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
-
-  const todayFollowups    = followups.filter(f => f.followUpDate?.startsWith(today));
-  const tomorrowFollowups = followups.filter(f => f.followUpDate?.startsWith(tomorrow));
-  const otherFollowups    = followups.filter(f => !f.followUpDate?.startsWith(today) && !f.followUpDate?.startsWith(tomorrow));
-
-  const updateStatus = async (id: string, status: string) => {
-    setStatuses(prev => ({ ...prev, [id]: status }));
-    try {
-      await fetch(`${BASE_URL}/prescriptions/followups/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ status }),
-      });
-    } catch {}
-  };
-
-  const FollowupCard = ({ f }: { f: any }) => {
-    const status = statuses[f._id] || f.followUpStatus || "";
-    return (
-      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="font-semibold text-foreground">{f.patientName || f.patient?.name}</p>
-            <p className="text-sm text-muted-foreground">{f.patientPhone || f.patient?.phone}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Dr. {f.doctorName} · Last visit: {f.date ? new Date(f.date).toLocaleDateString("en-IN") : "—"}
-            </p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-xs font-medium text-primary">Follow-up</p>
-            <p className="text-xs text-muted-foreground">
-              {f.followUpDate ? new Date(f.followUpDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {FOLLOWUP_STATUSES.map(s => (
-            <button key={s.key} onClick={() => updateStatus(f._id, s.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border-2 transition-all ${
-                status === s.key
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-border text-muted-foreground hover:border-primary/40"
-              }`}>
-              <s.icon className={`w-3 h-3 ${status === s.key ? "text-primary" : s.color}`} />
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const Section = ({ title, items }: { title: string; items: any[] }) => (
-    items.length > 0 ? (
-      <div>
-        <h3 className="text-sm font-semibold text-foreground mb-3">{title} ({items.length})</h3>
-        <div className="space-y-3 mb-6">
-          {items.map(f => <FollowupCard key={f._id} f={f} />)}
-        </div>
-      </div>
-    ) : null
-  );
-
-  return (
-    <div className="max-w-lg mx-auto">
-      <h2 className="text-xl font-bold text-foreground mb-1">Follow-up Dashboard</h2>
-      <p className="text-sm text-muted-foreground mb-6">Patients due for follow-up consultation</p>
-      {loading ? (
-        <div className="flex items-center justify-center py-16"><RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : followups.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No follow-ups scheduled</p>
-          <p className="text-sm">Follow-ups are created when doctors prescribe a return date</p>
-        </div>
-      ) : (
-        <div>
-          <Section title="Today" items={todayFollowups} />
-          <Section title="Tomorrow" items={tomorrowFollowups} />
-          <Section title="Upcoming" items={otherFollowups} />
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Reports Tab (Feature 7) ──────────────────────────────────────────────────
-type ReportPeriod = "today" | "yesterday" | "week" | "month" | "custom";
-
-const ReportsTab = () => {
-  const [period,    setPeriod]    = useState<ReportPeriod>("today");
-  const [startDate, setStartDate] = useState("");
-  const [endDate,   setEndDate]   = useState("");
-  const [rows,      setRows]      = useState<any[]>([]);
-  const [loading,   setLoading]   = useState(false);
-
-  const getRange = (): { start: string; end: string } => {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const fmt = (d: Date) => d.toISOString().split("T")[0];
-    if (period === "today")     return { start: fmt(today), end: fmt(today) };
-    if (period === "yesterday") { const d = new Date(today); d.setDate(d.getDate()-1); return { start: fmt(d), end: fmt(d) }; }
-    if (period === "week")      { const d = new Date(today); d.setDate(d.getDate()-6); return { start: fmt(d), end: fmt(today) }; }
-    if (period === "month")     { const d = new Date(today); d.setDate(1); return { start: fmt(d), end: fmt(today) }; }
-    return { start: startDate, end: endDate };
-  };
-
-  const loadReport = async () => {
-    const { start, end } = getRange();
-    if (!start || !end) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`${BASE_URL}/reports/reception?start=${start}&end=${end}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      const data = await res.json();
-      setRows(data.rows || data.patients || data.records || []);
-    } catch { setRows([]); }
-    setLoading(false);
-  };
-
-  useEffect(() => { if (period !== "custom") loadReport(); }, [period]);
-
-  const exportCSV = () => {
-    if (rows.length === 0) return;
-    const headers = ["Patient ID","Name","Age","Gender","Phone","Doctor","Department","Payment Method","Consultation Fee","Total Amount","Date","Time"];
-    const data = rows.map((r: any) => [
-      r.patientId || r._id || "",
-      r.patientName || r.name || "",
-      r.age || "",
-      r.gender || "",
-      r.phone || "",
-      r.doctorName || r.doctor || "",
-      r.department || "",
-      r.paymentMethod || r.method || "",
-      r.consultationFee || r.fee || "",
-      r.totalAmount || r.amount || "",
-      r.date ? new Date(r.date).toLocaleDateString("en-IN") : "",
-      r.date ? new Date(r.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "",
-    ]);
-    const csv = [headers, ...data].map(row => row.map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a"); a.href = url;
-    const { start, end } = getRange();
-    a.download = `cliniq-report-${start}-to-${end}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const PERIODS: { key: ReportPeriod; label: string }[] = [
-    { key: "today",     label: "Today"      },
-    { key: "yesterday", label: "Yesterday"  },
-    { key: "week",      label: "This Week"  },
-    { key: "month",     label: "This Month" },
-    { key: "custom",    label: "Custom"     },
-  ];
-
-  return (
-    <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">Reports</h2>
-          <p className="text-sm text-muted-foreground">Patient visit & payment records</p>
-        </div>
-        <Button onClick={exportCSV} disabled={rows.length === 0} variant="outline" className="gap-2 rounded-xl">
-          <Download className="w-4 h-4" /> Export CSV
-        </Button>
-      </div>
-
-      {/* Period filter */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {PERIODS.map(p => (
-          <button key={p.key} onClick={() => setPeriod(p.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all ${
-              period === p.key ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
-            }`}>{p.label}</button>
-        ))}
-      </div>
-
-      {/* Custom date range */}
-      {period === "custom" && (
-        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 mb-4 items-end">
-          <div className="flex-1">
-            <label className="text-xs text-muted-foreground mb-1 block">From</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-              className="w-full h-10 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-foreground" />
-          </div>
-          <div className="flex-1">
-            <label className="text-xs text-muted-foreground mb-1 block">To</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-              className="w-full h-10 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-foreground" />
-          </div>
-          <Button onClick={loadReport} disabled={!startDate || !endDate} className="h-10 rounded-xl gap-2">
-            <Search className="w-4 h-4" /> Load
-          </Button>
-        </motion.div>
-      )}
-
-      {/* Summary cards */}
-      {rows.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          {[
-            { label: "Total Patients", value: rows.length },
-            { label: "Total Revenue",  value: `₹${rows.reduce((s: number, r: any) => s + (Number(r.totalAmount || r.amount || 0)), 0).toLocaleString("en-IN")}` },
-            { label: "Avg per Patient", value: `₹${Math.round(rows.reduce((s: number, r: any) => s + (Number(r.totalAmount || r.amount || 0)), 0) / rows.length).toLocaleString("en-IN")}` },
-          ].map(c => (
-            <div key={c.label} className="bg-card border border-border rounded-xl p-3 text-center">
-              <p className="text-lg font-bold text-foreground">{c.value}</p>
-              <p className="text-xs text-muted-foreground">{c.label}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Table */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16"><RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : rows.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <FileBarChart className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No records found</p>
-          <p className="text-sm">Try a different date range</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/50 border-b border-border">
-                {["Name","Age","Gender","Phone","Doctor","Dept","Method","Amount","Date"].map(h => (
-                  <th key={h} className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r: any, i: number) => (
-                <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                  <td className="px-3 py-2.5 font-medium text-foreground whitespace-nowrap">{r.patientName || r.name || "—"}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground">{r.age || "—"}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground">{r.gender || "—"}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.phone || "—"}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.doctorName || r.doctor || "—"}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.department || "—"}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground">{r.paymentMethod || r.method || "—"}</td>
-                  <td className="px-3 py-2.5 font-medium text-foreground">₹{(r.totalAmount || r.amount || 0).toLocaleString("en-IN")}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.date ? new Date(r.date).toLocaleDateString("en-IN") : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-const ReceptionDashboard = () => {
-  const { queue, refreshQueue, refreshPatients } = useClinic();
-  const navigate  = useNavigate();
-  const [activeTab,      setActiveTab]      = useState<Tab>("register");
-  const [showChangePin,  setShowChangePin]  = useState(false);
-  const [registerKey,    setRegisterKey]    = useState(0); // increment to force remount
-
-  const handleLogout = () => {
-    localStorage.removeItem("cliniq_token");
-    localStorage.removeItem("cliniq_user");
-    navigate("/");
-  };
-
-  const activeQueue = queue.filter(q => q.status !== "done");
-
-  const tabs = [
-    { key: "register"  as Tab, label: "Register",                     icon: UserCheck    },
-    { key: "tests"     as Tab, label: "Tests",                         icon: FlaskConical },
-    { key: "queue"     as Tab, label: `Queue (${activeQueue.length})`, icon: ClipboardList},
-    { key: "manage"    as Tab, label: "Manage",                        icon: RefreshCw    },
-    { key: "followups" as Tab, label: "Follow-ups",                    icon: Calendar     },
-    { key: "reports"   as Tab, label: "Reports",                       icon: FileBarChart },
-  ];
-
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Users className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <h1 className="font-semibold text-foreground">Reception Desk</h1>
-            <p className="text-xs text-muted-foreground">ClinIQ</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground mr-1">{activeQueue.length} in queue</span>
-          <button onClick={() => { refreshQueue(); refreshPatients(); }}
-            className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
-            title="Refresh">
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <Button variant="ghost" size="sm" onClick={() => setShowChangePin(true)} className="gap-1.5 text-muted-foreground hover:text-foreground">
-            <KeyRound className="w-4 h-4" /> Change PIN
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-foreground">
-            <LogOut className="w-4 h-4" /> Logout
-          </Button>
-        </div>
-      </header>
-
-      <div className="border-b border-border bg-card px-6">
-        <div className="flex gap-1">
-          {tabs.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all ${
-                activeTab === tab.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}>
-              <tab.icon className="w-4 h-4" />{tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="p-8 overflow-y-auto h-[calc(100vh-121px)]">
-        <AnimatePresence mode="wait">
-          {activeTab === "register" && (
-            <motion.div key="register" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
-              <RegisterTab key={registerKey} onSuccess={() => setRegisterKey(k => k + 1)} />
-            </motion.div>
-          )}
-          {activeTab === "tests" && (
-            <motion.div key="tests" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
-              <TestsTab />
-            </motion.div>
-          )}
-          {activeTab === "queue" && (
-            <motion.div key="queue" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
-              <QueueTab />
-            </motion.div>
-          )}
-          {activeTab === "manage" && (
-            <motion.div key="manage" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
-              <ManageTab />
-            </motion.div>
-          )}
-          {activeTab === "followups" && (
-            <motion.div key="followups" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
-              <FollowupsTab />
-            </motion.div>
-          )}
-          {activeTab === "reports" && (
-            <motion.div key="reports" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
-              <ReportsTab />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <AnimatePresence>
+        {showTests && <TestsModal onClose={() => setShowTests(false)} />}
+      </AnimatePresence>
       <ChangePinModal open={showChangePin} onClose={() => setShowChangePin(false)} />
     </div>
   );
