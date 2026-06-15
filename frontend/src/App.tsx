@@ -7,6 +7,7 @@ import DoctorAuthPage     from "@/pages/doctor/DoctorAuthPage";
 import DoctorDashboard    from "@/pages/doctor/DoctorDashboard";
 import DoctorDiagnosis    from "@/pages/doctor/DoctorDiagnosis";
 import DoctorPrescription from "@/pages/doctor/DoctorPrescription";
+import DoctorConsultation from "@/pages/doctor/DoctorConsultation";
 import ReceptionAuthPage  from "@/pages/reception/ReceptionAuthPage";
 import ReceptionDashboard from "@/pages/reception/ReceptionDashboard";
 import PharmacyAuthPage   from "@/pages/pharmacy/PharmacyAuthPage";
@@ -30,7 +31,8 @@ const App = () => (
         <Route path="/doctor"              element={<DoctorAuthPage />} />
         <Route path="/doctor/dashboard"    element={<RequireAuth role="doctor">     <DoctorDashboard />    </RequireAuth>} />
         <Route path="/doctor/diagnosis"    element={<RequireAuth role="doctor">     <DoctorDiagnosis />    </RequireAuth>} />
-        <Route path="/doctor/prescription" element={<RequireAuth role="doctor">     <DoctorPrescription /> </RequireAuth>} />
+        <Route path="/doctor/prescription"  element={<RequireAuth role="doctor">     <DoctorPrescription /> </RequireAuth>} />
+        <Route path="/doctor/consultation" element={<RequireAuth role="doctor">     <DoctorConsultation /> </RequireAuth>} />
         <Route path="/reception"           element={<ReceptionAuthPage />} />
         <Route path="/reception/dashboard" element={<RequireAuth role="reception">  <ReceptionDashboard /></RequireAuth>} />
         <Route path="/pharmacy"            element={<Navigate to="/pharmacy/login" replace />} />

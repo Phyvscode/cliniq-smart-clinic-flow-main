@@ -1,0 +1,1021 @@
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  X, Plus, Search, Check, Pill, RefreshCw, Send,
+  ChevronDown, ChevronUp, Clock, UserCheck, FlaskConical,
+  Activity, Printer, Download, MessageCircle, FileText,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useClinic } from "@/context/ClinicContext";
+import { Medicine, PrescriptionMedicine } from "@/data/mockData";
+import { apiUpdateQueueStatus } from "@/lib/api";
+import DoctorSidebar from "@/components/doctor/DoctorSidebar";
+
+const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:5000/api";
+const getToken = () => localStorage.getItem("cliniq_token");
+
+// ── API helpers ──────────────────────────────────────────────────────────────
+const apiCreatePrescription = async (body: object) => {
+  const res = await fetch(`${BASE_URL}/prescriptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to save prescription");
+  return data;
+};
+const apiSendPrescription   = async (id: string) => {
+  const res = await fetch(`${BASE_URL}/prescriptions/${id}/send`, {
+    method: "POST", headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  return res.json();
+};
+const apiDownloadRx         = (id: string) => window.open(`${BASE_URL}/prescriptions/${id}/pdf`, "_blank");
+const apiDownloadLab        = (id: string) => window.open(`${BASE_URL}/prescriptions/${id}/lab-form`, "_blank");
+
+// ── Constants ────────────────────────────────────────────────────────────────
+const COMPLAINTS_SIMPLE = [
+  "Fever","Cold","Cough","Headache","Vomiting","Loose Motions","Weakness",
+  "Chest Pain","Breathlessness","Allergy","Sore Throat","Acidity","Nausea",
+  "Dizziness","Fatigue","Constipation","Eye Redness","Skin Rash","Itching",
+  "Swelling","Burning Urination",
+];
+const BODY_AREAS = ["Head","Chest","Abdomen","Back","Leg","Knee","Shoulder","Neck","Joint"];
+const COMPLAINTS_WITH_SUB: Record<string, string[]> = {
+  "Body Ache": BODY_AREAS,
+  "Pain": [...BODY_AREAS, "Ear","Tooth","Eye","Throat"],
+};
+const DURATION_OPTIONS = ["1 Day","2 Days","3 Days","5 Days","1 Week","2 Weeks","1 Month"];
+
+const INVESTIGATIONS_COMMON = ["CBC","ESR","CRP","RBS","FBS","HbA1c","LFT","KFT","Urine R/M","TSH","Lipid Profile","ECG","Chest X-Ray","USG Abdomen","Dengue NS1"];
+const INVESTIGATIONS_ALL = [
+  ...INVESTIGATIONS_COMMON,
+  "Blood Sugar (PP)","Thyroid Profile","Malaria Test","Typhoid (Widal)","CT Scan","MRI","Echo",
+  "Vitamin D","Vitamin B12","Serum Electrolytes","Urine Culture","Blood Culture",
+];
+
+const DIAGNOSES_COMMON = [
+  "Viral Fever","URTI","LRTI","Gastritis","AGE (Acute Gastroenteritis)","Hypertension",
+  "Type 1 Diabetes Mellitus","Type 2 Diabetes Mellitus","Migraine","Allergic Rhinitis",
+  "UTI","Acute Bronchitis","Asthma","Sinusitis","Dengue Fever","Malaria","Hypothyroidism","Anemia","Tonsillitis","GERD",
+];
+
+const PROCEDURES = ["IV Fluids","Nebulization","Oxygen Support","Injection","Dressing","ECG","Suturing","Wound Care"];
+
+const SPECIALISTS = [
+  "Cardiologist","Neurologist","Orthopedic Surgeon","Dermatologist","ENT Specialist",
+  "Ophthalmologist","Gynecologist","Pediatrician","Psychiatrist","Oncologist",
+  "Urologist","Nephrologist","Gastroenterologist","Pulmonologist","Endocrinologist","Physiotherapist",
+];
+
+const DURATION_PRESETS = [1, 3, 5, 7, 10, 14, 21, 30];
+const SPECIAL_INSTRUCTIONS = [
+  "Before food","After food","With food","Empty stomach","Before sleep","With warm water","With milk","Chew before swallowing","Apply externally",
+];
+const FREQUENCY_INTERVALS: { key: "4h" | "6h" | "8h" | "12h"; label: string }[] = [
+  { key: "4h", label: "4h" }, { key: "6h", label: "6h" }, { key: "8h", label: "8h" }, { key: "12h", label: "12h" },
+];
+type DoseSlot = "morning" | "afternoon" | "evening" | "night";
+const DOSE_SLOTS: DoseSlot[] = ["morning", "afternoon", "evening", "night"];
+
+const MEDICINE_CATEGORIES = [
+  "Fever & Pain","Antibiotics","Allergy & Cold","Gastric","Vitamins","Diabetes","BP & Cardiac","Injections","Dermatology","ENT",
+];
+
+// ── Interfaces ───────────────────────────────────────────────────────────────
+interface Vitals {
+  bpSys?: number; bpDia?: number; pulse?: number;
+  temp?: number;  spo2?: number;  rr?: number;
+  height?: number; weight?: number;
+}
+
+// ── Small components ─────────────────────────────────────────────────────────
+const Chip = ({ label, selected, onClick, color = "blue" }: { label: string; selected: boolean; onClick: () => void; color?: "blue" | "green" | "purple" }) => {
+  const activeClass = color === "green" ? "bg-emerald-500 text-white border-emerald-500"
+    : color === "purple" ? "bg-violet-500 text-white border-violet-500"
+    : "bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white";
+  return (
+    <button onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 ${
+        selected ? activeClass : "bg-white dark:bg-transparent text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500"
+      }`}>
+      {label}
+    </button>
+  );
+};
+
+const SectionLabel = ({ children }: { children: string }) => (
+  <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-3">{children}</p>
+);
+
+const StepHeader = ({ num, icon: Icon, label }: { num: number; icon: typeof Activity; label: string }) => (
+  <div className="flex items-center gap-3 mb-4">
+    <span className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600">STEP {num}</span>
+    <Icon className="w-4 h-4 text-gray-400 dark:text-gray-600" strokeWidth={1.5} />
+    <h3 className="text-xl font-serif text-gray-900 dark:text-white">{label}</h3>
+  </div>
+);
+
+// ── Duration Modal ────────────────────────────────────────────────────────────
+const DurationModal = ({ complaint, onSelect, onClose }: { complaint: string; onSelect: (d: string) => void; onClose: () => void }) => {
+  const [custom, setCustom] = useState("");
+  return (
+    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 w-full max-w-xs shadow-2xl">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold text-gray-900 dark:text-white">{complaint}</h3>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">Since how long?</p>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {DURATION_OPTIONS.map(d => (
+            <button key={d} onClick={() => { onSelect(d); onClose(); }}
+              className="px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 hover:border-gray-900 dark:hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+              {d}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input placeholder="Custom e.g. 10 Days" value={custom}
+            onChange={e => setCustom(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && custom.trim()) { onSelect(custom.trim()); onClose(); } }}
+            className="flex-1 h-9 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400" />
+          <button onClick={() => { if (custom.trim()) { onSelect(custom.trim()); onClose(); } }}
+            disabled={!custom.trim()}
+            className="h-9 px-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-semibold disabled:opacity-40">
+            Add
+          </button>
+        </div>
+        <button onClick={() => { onSelect(""); onClose(); }}
+          className="mt-3 w-full text-center text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+          Add without duration
+        </button>
+      </motion.div>
+    </div>
+  );
+};
+
+// ── Sub-area Modal ────────────────────────────────────────────────────────────
+const SubAreaModal = ({ complaint, areas, onSelect, onClose }: { complaint: string; areas: string[]; onSelect: (l: string) => void; onClose: () => void }) => (
+  <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4">
+    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+      className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-900 dark:text-white">{complaint}</h3>
+        <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X className="w-4 h-4" /></button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {areas.map(area => (
+          <button key={area} onClick={() => { onSelect(`${complaint} - ${area}`); onClose(); }}
+            className="px-3 py-1.5 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-medium hover:opacity-90">
+            {area}
+          </button>
+        ))}
+      </div>
+      <button onClick={() => { onSelect(complaint); onClose(); }}
+        className="mt-4 w-full text-center text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+        Add "{complaint}" without specifying area
+      </button>
+    </motion.div>
+  </div>
+);
+
+// ── Medicine Card (right panel) ───────────────────────────────────────────────
+const MedCard = ({ med, onRemove, onUpdate }: {
+  med: PrescriptionMedicine;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, patch: Partial<PrescriptionMedicine>) => void;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const usingInterval = !!med.frequencyInterval;
+  const toggleSlot = (slot: DoseSlot) => onUpdate(med.medicineId, { [slot]: !med[slot as keyof typeof med], frequencyInterval: null });
+  const setFreq    = (key: "4h" | "6h" | "8h" | "12h" | null) => onUpdate(med.medicineId, { frequencyInterval: key, morning: false, afternoon: false, evening: false, night: false });
+  const toggleInstr = (instr: string) => {
+    const list = (med.instructions || "").split(", ").filter(Boolean);
+    const updated = list.includes(instr) ? list.filter(i => i !== instr) : [...list, instr];
+    onUpdate(med.medicineId, { instructions: updated.join(", ") });
+  };
+  const activeInstrs = (med.instructions || "").split(", ").filter(Boolean);
+  const timingStr = usingInterval
+    ? `Every ${med.frequencyInterval}`
+    : [med.morning && "M", med.afternoon && "A", med.evening && "E", med.night && "N"].filter(Boolean).join("-") || "No timing";
+
+  return (
+    <div className="bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden">
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <div className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-white/10 flex items-center justify-center shrink-0">
+          <Pill className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{med.name}</p>
+          <p className="text-xs text-gray-400 truncate">{timingStr} · {med.durationDays}d</p>
+        </div>
+        <button onClick={() => setExpanded(!expanded)}
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10">
+          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+        <button onClick={() => onRemove(med.medicineId)}
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <div className="px-3 pb-3 space-y-3 border-t border-gray-200 dark:border-white/10 pt-3">
+              {/* Dosage */}
+              <div className="flex gap-2">
+                <input type="number" placeholder="Dose" value={med.dosageAmount || ""}
+                  onChange={e => onUpdate(med.medicineId, { dosageAmount: Number(e.target.value) || undefined })}
+                  className="w-20 h-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-gray-400" />
+                {(["mg", "ml"] as const).map(u => (
+                  <button key={u} onClick={() => onUpdate(med.medicineId, { dosageUnit: u })}
+                    className={`h-8 px-2.5 rounded-lg text-xs font-medium border transition-all ${
+                      med.dosageUnit === u ? "border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900" : "border-gray-200 dark:border-gray-700 text-gray-500"
+                    }`}>{u}</button>
+                ))}
+              </div>
+              {/* Timing slots */}
+              <div className="grid grid-cols-4 gap-1">
+                {DOSE_SLOTS.map(slot => (
+                  <button key={slot} onClick={() => toggleSlot(slot)} disabled={usingInterval}
+                    className={`py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
+                      !usingInterval && med[slot as keyof typeof med]
+                        ? "border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900"
+                        : "border-gray-200 dark:border-gray-700 text-gray-400"
+                    } ${usingInterval ? "opacity-30 cursor-not-allowed" : ""}`}>
+                    {slot.charAt(0).toUpperCase() + slot.slice(1)}
+                  </button>
+                ))}
+              </div>
+              {/* Interval */}
+              <div className="grid grid-cols-4 gap-1">
+                {FREQUENCY_INTERVALS.map(f => (
+                  <button key={f.key}
+                    onClick={() => (usingInterval && med.frequencyInterval === f.key) ? setFreq(null) : setFreq(f.key)}
+                    className={`py-1.5 rounded-lg text-[10px] font-medium border flex items-center justify-center gap-0.5 transition-all ${
+                      usingInterval && med.frequencyInterval === f.key
+                        ? "border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900"
+                        : "border-gray-200 dark:border-gray-700 text-gray-400"
+                    }`}>
+                    <Clock className="w-2.5 h-2.5" />{f.label}
+                  </button>
+                ))}
+              </div>
+              {/* Duration */}
+              <div className="flex flex-wrap gap-1">
+                {DURATION_PRESETS.map(d => (
+                  <button key={d} onClick={() => onUpdate(med.medicineId, { durationDays: d })}
+                    className={`h-7 px-2 rounded-lg text-[10px] font-medium border transition-all ${
+                      med.durationDays === d
+                        ? "border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900"
+                        : "border-gray-200 dark:border-gray-700 text-gray-400"
+                    }`}>{d}d</button>
+                ))}
+              </div>
+              {/* Instructions */}
+              <div className="flex flex-wrap gap-1">
+                {SPECIAL_INSTRUCTIONS.map(instr => (
+                  <button key={instr} onClick={() => toggleInstr(instr)}
+                    className={`h-6 px-2 rounded-full text-[10px] font-medium border transition-all ${
+                      activeInstrs.includes(instr)
+                        ? "border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900"
+                        : "border-gray-200 dark:border-gray-700 text-gray-400"
+                    }`}>
+                    {activeInstrs.includes(instr) && <Check className="w-2.5 h-2.5 inline mr-0.5" />}
+                    {instr}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// ── Main Component ────────────────────────────────────────────────────────────
+const DoctorConsultation = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const patientId = searchParams.get("patientId");
+  const { patients, medicines: ctxMedicines, getCurrentPatient, refreshQueue, refreshMedicines } = useClinic();
+
+  const patient = patients.find(p => p.id === patientId)
+    || (patients as any[]).find(p => p._patient?.id === patientId)?._patient;
+  const current = getCurrentPatient();
+
+  // ── LEFT: Complaints ──────────────────────────────────────────────────────
+  const [selectedComplaints, setSelectedComplaints] = useState<string[]>([]);
+  const [pendingLabel,       setPendingLabel]        = useState<string | null>(null);
+  const [subModal,           setSubModal]            = useState<string | null>(null);
+  const [customComplaint,    setCustomComplaint]     = useState("");
+
+  // ── LEFT: Investigations ──────────────────────────────────────────────────
+  const [selectedInvest,     setSelectedInvest]      = useState<string[]>([]);
+  const [investSearch,       setInvestSearch]        = useState("");
+
+  // ── LEFT: Diagnosis ───────────────────────────────────────────────────────
+  const [selectedDiagnoses,  setSelectedDiagnoses]   = useState<string[]>([]);
+  const [diagSearch,         setDiagSearch]          = useState("");
+
+  // ── LEFT: Procedures ──────────────────────────────────────────────────────
+  const [selectedProcs,      setSelectedProcs]       = useState<string[]>([]);
+  const [customProc,         setCustomProc]          = useState("");
+
+  // ── LEFT: Vitals ──────────────────────────────────────────────────────────
+  const [vitals,             setVitals]              = useState<Vitals>({});
+  const [showVitals,         setShowVitals]          = useState(false);
+  const updateVital = (k: keyof Vitals, v: number | undefined) => setVitals(prev => ({ ...prev, [k]: v }));
+
+  // ── RIGHT: Medicines ──────────────────────────────────────────────────────
+  const [medicines,      setMedicines]      = useState<PrescriptionMedicine[]>([]);
+  const [medSearch,      setMedSearch]      = useState("");
+  const [showMedSearch,  setShowMedSearch]  = useState(false);
+  const [selectedCat,    setSelectedCat]    = useState("");
+
+  // ── RIGHT: Referral ───────────────────────────────────────────────────────
+  const [referralSpec,       setReferralSpec]        = useState("");
+  const [referralCustom,     setReferralCustom]      = useState("");
+  const [referralNotes,      setReferralNotes]       = useState("");
+  const [showReferral,       setShowReferral]        = useState(false);
+  const [specSearch,         setSpecSearch]          = useState("");
+
+  // ── RIGHT: Notes & Follow-up ──────────────────────────────────────────────
+  const [doctorNotes,        setDoctorNotes]         = useState("");
+  const [followUpDate,       setFollowUpDate]        = useState("");
+  const [followUpOverride,   setFollowUpOverride]    = useState(false);
+
+  // ── Save state ────────────────────────────────────────────────────────────
+  const [saving,        setSaving]        = useState(false);
+  const [saved,         setSaved]         = useState(false);
+  const [savedRxId,     setSavedRxId]     = useState("");
+  const [savedPatient,  setSavedPatient]  = useState<any>(null);
+  const [sending,       setSending]       = useState(false);
+  const [sendResult,    setSendResult]    = useState<{ success: boolean; message: string } | null>(null);
+
+  useEffect(() => { refreshMedicines(); }, []);
+
+  // Auto follow-up date from medicine durations
+  useEffect(() => {
+    if (medicines.length === 0 || followUpOverride) return;
+    const maxDays = Math.max(...medicines.map(m => m.durationDays || 5));
+    const d = new Date();
+    d.setDate(d.getDate() + maxDays + (maxDays <= 3 ? 2 : maxDays <= 7 ? 3 : 5));
+    setFollowUpDate(d.toISOString().split("T")[0]);
+  }, [medicines, followUpOverride]);
+
+  // ── Complaint handlers ────────────────────────────────────────────────────
+  const handleComplaintClick = (c: string) => {
+    const areas = COMPLAINTS_WITH_SUB[c];
+    const isSel = selectedComplaints.some(x => x === c || x.startsWith(`${c} –`) || x.startsWith(`${c} -`));
+    if (isSel) {
+      setSelectedComplaints(prev => prev.filter(x => x !== c && !x.startsWith(`${c} –`) && !x.startsWith(`${c} -`)));
+    } else if (areas) {
+      setSubModal(c);
+    } else {
+      setPendingLabel(c);
+    }
+  };
+  const isComplaintSel = (c: string) =>
+    selectedComplaints.some(s => s === c || s.startsWith(`${c} –`) || s.startsWith(`${c} -`));
+  const addCustomComplaint = () => {
+    const v = customComplaint.trim();
+    if (!v) return;
+    setPendingLabel(v);
+    setCustomComplaint("");
+  };
+
+  // ── Investigation handlers ────────────────────────────────────────────────
+  const toggleInvest = (t: string) =>
+    setSelectedInvest(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+  const filteredInvest = INVESTIGATIONS_ALL.filter(t =>
+    t.toLowerCase().includes(investSearch.toLowerCase())
+  );
+
+  // ── Medicine handlers ──────────────────────────────────────────────────────
+  const filteredMeds = useMemo(() => {
+    let meds = ctxMedicines;
+    if (selectedCat) meds = meds.filter((m: any) => m.category === selectedCat);
+    if (medSearch)   meds = meds.filter(m => m.name.toLowerCase().includes(medSearch.toLowerCase()));
+    return meds;
+  }, [medSearch, selectedCat, ctxMedicines]);
+
+  const addMedicine = (med: Medicine) => {
+    if (medicines.find(m => m.medicineId === med.id)) return;
+    setMedicines(prev => [...prev, {
+      medicineId: med.id, name: med.name,
+      morning: true, afternoon: false, evening: true, night: false,
+      frequencyInterval: null, dosageAmount: undefined, dosageUnit: undefined,
+      durationDays: 5, instructions: "",
+    }]);
+    setShowMedSearch(false); setMedSearch("");
+  };
+
+  // ── Finalize (save prescription) ─────────────────────────────────────────
+  const handleFinalize = async () => {
+    if (!current && !patient) return;
+    if (medicines.length === 0) { alert("Add at least one medicine to finalize."); return; }
+    setSaving(true);
+    try {
+      const pat        = current?.patient || patient;
+      const queueEntry = current?.queueEntry;
+      const finalSpec  = referralSpec || referralCustom.trim();
+
+      const bmi = vitals.height && vitals.weight
+        ? Number((vitals.weight / ((vitals.height / 100) ** 2)).toFixed(1))
+        : undefined;
+
+      const res = await apiCreatePrescription({
+        patientId:      pat?.id || patientId,
+        complaints:     selectedComplaints,
+        problems:       selectedComplaints,
+        investigations: selectedInvest,
+        diagnoses:      selectedDiagnoses,
+        treatments:     selectedProcs,
+        vitals:         { ...vitals, bmi },
+        medicines:      medicines.map(m => ({
+          medicineId:        m.medicineId,
+          morning:           m.morning,
+          afternoon:         m.afternoon,
+          evening:           m.evening,
+          night:             m.night,
+          frequencyInterval: m.frequencyInterval || null,
+          dosageAmount:      m.dosageAmount      || null,
+          dosageUnit:        m.dosageUnit        || null,
+          durationDays:      m.durationDays,
+          instructions:      m.instructions      || "",
+        })),
+        notes:          doctorNotes || "",
+        followUpDate:   followUpDate || null,
+        referral: finalSpec ? { specialist: finalSpec, notes: referralNotes } : null,
+      });
+
+      const rxId = String(res?.prescription?._id || res?.prescription?.id || res?._id || res?.id || "");
+      setSavedRxId(rxId);
+      setSavedPatient(pat);
+      setSaved(true);
+
+      if (queueEntry?.id) {
+        await apiUpdateQueueStatus(queueEntry.id, "done");
+      }
+      await refreshQueue();
+      setTimeout(() => refreshQueue(), 1500);
+    } catch (err: any) {
+      alert(err.message || "Failed to finalize prescription");
+    } finally { setSaving(false); }
+  };
+
+  const handleSend = async () => {
+    if (!savedRxId) return;
+    setSending(true); setSendResult(null);
+    try {
+      const res = await apiSendPrescription(savedRxId);
+      setSendResult({ success: true, message: res.message });
+    } catch (err: any) {
+      setSendResult({ success: false, message: err.message });
+    } finally { setSending(false); }
+  };
+
+  if (!patient && !current) {
+    return (
+      <div className="flex h-screen bg-[#f5f5fa] dark:bg-[#0a0a0f]">
+        <DoctorSidebar active="consultation" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-400 dark:text-gray-600 text-sm mb-4">No active consultation.</p>
+            <button onClick={() => navigate("/doctor/dashboard")}
+              className="px-4 py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-medium">
+              Go to Appointments
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const pat = current?.patient || patient;
+
+  // ── SAVED SCREEN ──────────────────────────────────────────────────────────
+  if (saved) {
+    return (
+      <div className="flex h-screen bg-[#f5f5fa] dark:bg-[#0a0a0f]">
+        <DoctorSidebar active="consultation" />
+        <div className="flex-1 overflow-y-auto flex items-center justify-center p-8">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            className="max-w-md w-full space-y-6">
+            <div className="text-center">
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200 }}
+                className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4 mx-auto">
+                <Check className="w-8 h-8 text-emerald-500" />
+              </motion.div>
+              <h2 className="text-2xl font-serif text-gray-900 dark:text-white mb-1">Consultation complete</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Prescription saved for <span className="font-medium text-gray-900 dark:text-white">{savedPatient?.name}</span>
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-2xl p-5 space-y-3">
+              <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600">ACTIONS</p>
+
+              <Button onClick={handleSend} disabled={sending}
+                className="w-full h-11 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-100 gap-2">
+                {sending
+                  ? <><RefreshCw className="w-4 h-4 animate-spin" /> Sending…</>
+                  : <><Send className="w-4 h-4" /> Send via WhatsApp</>}
+              </Button>
+
+              {sendResult && (
+                <div className={`rounded-xl p-3 flex items-start gap-2 text-sm ${
+                  sendResult.success
+                    ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                    : "bg-red-50 dark:bg-red-500/10 text-red-600"
+                }`}>
+                  {sendResult.success ? <Check className="w-4 h-4 mt-0.5 shrink-0" /> : <X className="w-4 h-4 mt-0.5 shrink-0" />}
+                  {sendResult.message}
+                </div>
+              )}
+
+              <Button variant="outline" onClick={() => apiDownloadRx(savedRxId)}
+                className="w-full h-11 rounded-xl border-gray-200 dark:border-gray-700 gap-2">
+                <Printer className="w-4 h-4" /> Print Prescription
+              </Button>
+
+              <Button variant="outline" onClick={() => apiDownloadRx(savedRxId)}
+                className="w-full h-11 rounded-xl border-gray-200 dark:border-gray-700 gap-2">
+                <Download className="w-4 h-4" /> Download PDF
+              </Button>
+
+              <Button variant="outline" onClick={async () => {
+                try {
+                  await fetch(`${BASE_URL}/prescriptions/${savedRxId}/send-pharmacy`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${getToken()}` },
+                  });
+                } catch {}
+              }} className="w-full h-11 rounded-xl border-gray-200 dark:border-gray-700 gap-2">
+                <MessageCircle className="w-4 h-4" /> Send to Pharmacy
+              </Button>
+            </div>
+
+            <Button variant="ghost" onClick={() => navigate("/doctor/dashboard")}
+              className="w-full text-gray-500 dark:text-gray-400">
+              Done — Back to Appointments
+            </Button>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CONSULTATION LAYOUT ───────────────────────────────────────────────────
+  return (
+    <div className="flex h-screen bg-[#f5f5fa] dark:bg-[#0a0a0f] overflow-hidden">
+      <DoctorSidebar active="consultation" />
+
+      {/* Two-column content */}
+      <div className="flex-1 flex min-w-0 overflow-hidden">
+
+        {/* ── LEFT: scrollable steps ─────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Patient header */}
+          <div className="sticky top-0 z-10 bg-[#f5f5fa] dark:bg-[#0a0a0f] border-b border-gray-200 dark:border-white/5 px-8 py-4 flex items-center gap-3">
+            <button onClick={() => navigate("/doctor/dashboard")}
+              className="text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors mr-2">
+              ← Appointments
+            </button>
+            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center text-sm font-semibold text-gray-600 dark:text-white/60">
+              {pat?.name?.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{pat?.name}</h2>
+              <p className="text-xs text-gray-400">{pat?.age} yrs · {(pat as any)?.gender}{(pat as any)?.bloodGroup && ` · ${(pat as any).bloodGroup}`}</p>
+            </div>
+            <button onClick={() => { refreshQueue(); refreshMedicines(); }}
+              className="ml-auto w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="px-8 py-8 space-y-10">
+
+            {/* STEP 1 – Symptoms */}
+            <section>
+              <StepHeader num={1} icon={Activity} label="Symptoms" />
+              {selectedComplaints.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {selectedComplaints.map(c => (
+                    <span key={c}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-medium">
+                      {c}
+                      <button onClick={() => setSelectedComplaints(prev => prev.filter(x => x !== c))}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="bg-white dark:bg-[#0d0d1a] border border-gray-200 dark:border-white/5 rounded-2xl p-5">
+                <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-3">COMMON</p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {COMPLAINTS_SIMPLE.map(c => (
+                    <Chip key={c} label={c} selected={isComplaintSel(c)} onClick={() => handleComplaintClick(c)} />
+                  ))}
+                  {Object.keys(COMPLAINTS_WITH_SUB).map(c => (
+                    <Chip key={c} label={`${c} ›`} selected={isComplaintSel(c)} onClick={() => handleComplaintClick(c)} />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input placeholder="Add custom symptom…" value={customComplaint}
+                    onChange={e => setCustomComplaint(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") addCustomComplaint(); }}
+                    className="flex-1 h-9 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400" />
+                  <button onClick={addCustomComplaint} disabled={!customComplaint.trim()}
+                    className="h-9 px-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-semibold disabled:opacity-40 flex items-center gap-1">
+                    <Plus className="w-3.5 h-3.5" /> Add
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* STEP 2 – Investigations */}
+            <section>
+              <StepHeader num={2} icon={FlaskConical} label="Investigations" />
+              {selectedInvest.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {selectedInvest.map(t => (
+                    <span key={t}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs font-medium">
+                      {t}
+                      <button onClick={() => toggleInvest(t)}><X className="w-3 h-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="bg-white dark:bg-[#0d0d1a] border border-gray-200 dark:border-white/5 rounded-2xl p-5">
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input placeholder="Add additional investigation…" value={investSearch}
+                    onChange={e => setInvestSearch(e.target.value)}
+                    className="w-full h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent pl-9 pr-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400" />
+                </div>
+                <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-3">COMMON</p>
+                <div className="flex flex-wrap gap-2">
+                  {filteredInvest.map(t => (
+                    <Chip key={t} label={t} selected={selectedInvest.includes(t)} onClick={() => toggleInvest(t)} color="blue" />
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* STEP 3 – Diagnosis */}
+            <section>
+              <StepHeader num={3} icon={FileText} label="Diagnosis" />
+              {selectedDiagnoses.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {selectedDiagnoses.map(d => (
+                    <span key={d}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-medium">
+                      {d}<button onClick={() => setSelectedDiagnoses(prev => prev.filter(x => x !== d))}><X className="w-3 h-3 ml-0.5" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="bg-white dark:bg-[#0d0d1a] border border-gray-200 dark:border-white/5 rounded-2xl p-5">
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input placeholder="Search or add a diagnosis…" value={diagSearch}
+                    onChange={e => setDiagSearch(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && diagSearch.trim()) {
+                        setSelectedDiagnoses(prev => prev.includes(diagSearch.trim()) ? prev : [...prev, diagSearch.trim()]);
+                        setDiagSearch("");
+                      }
+                    }}
+                    className="w-full h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent pl-9 pr-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400" />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {DIAGNOSES_COMMON.filter(d => !diagSearch || d.toLowerCase().includes(diagSearch.toLowerCase())).map(d => (
+                    <Chip key={d} label={d}
+                      selected={selectedDiagnoses.includes(d)}
+                      onClick={() => setSelectedDiagnoses(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}
+                      color="green" />
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* STEP 4 – Medicines & Treatment */}
+            <section>
+              <StepHeader num={4} icon={Pill} label="Medicines & Treatment" />
+              <div className="bg-white dark:bg-[#0d0d1a] border border-gray-200 dark:border-white/5 rounded-2xl p-5">
+                <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-3">TREATMENT / PROCEDURE</p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {PROCEDURES.map(p => (
+                    <Chip key={p} label={p}
+                      selected={selectedProcs.includes(p)}
+                      onClick={() => setSelectedProcs(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])} />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input placeholder="Add custom procedure…" value={customProc}
+                    onChange={e => setCustomProc(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && customProc.trim()) {
+                        setSelectedProcs(prev => [...prev, customProc.trim()]);
+                        setCustomProc("");
+                      }
+                    }}
+                    className="flex-1 h-9 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400" />
+                  <button onClick={() => { if (customProc.trim()) { setSelectedProcs(prev => [...prev, customProc.trim()]); setCustomProc(""); } }}
+                    disabled={!customProc.trim()}
+                    className="h-9 px-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-semibold disabled:opacity-40 flex items-center gap-1">
+                    <Plus className="w-3.5 h-3.5" /> Add
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* Vitals (collapsible) */}
+            <section>
+              <button onClick={() => setShowVitals(!showVitals)}
+                className="flex items-center gap-3 mb-4 hover:opacity-70 transition-opacity">
+                <span className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600">VITALS</span>
+                <Activity className="w-4 h-4 text-gray-400 dark:text-gray-600" strokeWidth={1.5} />
+                <span className="text-lg font-serif text-gray-900 dark:text-white">Clinical Vitals</span>
+                <span className="text-xs text-gray-400 ml-auto">(optional)</span>
+                {showVitals ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+              </button>
+              <AnimatePresence>
+                {showVitals && (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                    <div className="bg-white dark:bg-[#0d0d1a] border border-gray-200 dark:border-white/5 rounded-2xl p-5 space-y-3">
+                      {/* BP + Pulse + Temp */}
+                      <div className="flex flex-wrap gap-3">
+                        <div className="flex-1 min-w-[180px]">
+                          <label className="text-xs text-gray-400 mb-1 block">Blood Pressure</label>
+                          <div className="flex gap-1 items-center">
+                            <input type="number" placeholder="120" value={vitals.bpSys ?? ""}
+                              onChange={e => updateVital("bpSys", e.target.value ? Number(e.target.value) : undefined)}
+                              className="w-full h-9 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-gray-400" />
+                            <span className="text-gray-400 text-sm shrink-0">/</span>
+                            <input type="number" placeholder="80" value={vitals.bpDia ?? ""}
+                              onChange={e => updateVital("bpDia", e.target.value ? Number(e.target.value) : undefined)}
+                              className="w-full h-9 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-gray-400" />
+                            <span className="text-xs text-gray-400 shrink-0">mmHg</span>
+                          </div>
+                        </div>
+                        {[
+                          { label: "Pulse", key: "pulse" as keyof Vitals, unit: "bpm", ph: "72" },
+                          { label: "Temp", key: "temp" as keyof Vitals, unit: "°F", ph: "98.6" },
+                        ].map(f => (
+                          <div key={f.key} className="flex-1 min-w-[100px]">
+                            <label className="text-xs text-gray-400 mb-1 block">{f.label}</label>
+                            <div className="relative">
+                              <input type="number" placeholder={f.ph} value={vitals[f.key] ?? ""}
+                                onChange={e => updateVital(f.key, e.target.value ? Number(e.target.value) : undefined)}
+                                className="w-full h-9 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-gray-400" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">{f.unit}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {[
+                          { label: "SpO2", key: "spo2" as keyof Vitals, unit: "%", ph: "99" },
+                          { label: "Resp. Rate", key: "rr" as keyof Vitals, unit: "/min", ph: "18" },
+                          { label: "Height", key: "height" as keyof Vitals, unit: "cm", ph: "170" },
+                          { label: "Weight", key: "weight" as keyof Vitals, unit: "kg", ph: "70" },
+                        ].map(f => (
+                          <div key={f.key} className="flex-1 min-w-[100px]">
+                            <label className="text-xs text-gray-400 mb-1 block">{f.label}</label>
+                            <div className="relative">
+                              <input type="number" placeholder={f.ph} value={vitals[f.key] ?? ""}
+                                onChange={e => updateVital(f.key, e.target.value ? Number(e.target.value) : undefined)}
+                                className="w-full h-9 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-gray-400" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">{f.unit}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+
+          </div>
+        </div>
+
+        {/* ── RIGHT: sticky prescription panel ─────────────────────────── */}
+        <div className="w-[360px] shrink-0 flex flex-col h-screen border-l border-gray-200 dark:border-white/5 bg-white dark:bg-[#0d0d1a] overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+
+            {/* PRESCRIPTION */}
+            <div>
+              <div className="flex items-baseline justify-between mb-3">
+                <SectionLabel>PRESCRIPTION</SectionLabel>
+                <span className="text-2xl font-serif text-gray-900 dark:text-white">
+                  Rx · {medicines.length} item{medicines.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {/* Medicine list */}
+              <div className="space-y-2 mb-3">
+                <AnimatePresence>
+                  {medicines.map(med => (
+                    <MedCard key={med.medicineId} med={med}
+                      onRemove={id => setMedicines(prev => prev.filter(m => m.medicineId !== id))}
+                      onUpdate={(id, patch) => setMedicines(prev => prev.map(m => m.medicineId === id ? { ...m, ...patch } : m))} />
+                  ))}
+                </AnimatePresence>
+              </div>
+
+              {/* Add medicine search */}
+              {showMedSearch ? (
+                <div className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-3">
+                  <div className="relative mb-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input placeholder="Search medicines…" value={medSearch}
+                      onChange={e => setMedSearch(e.target.value)}
+                      autoFocus
+                      className="w-full h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 pl-9 pr-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400" />
+                  </div>
+                  <div className="flex gap-1 flex-wrap mb-2">
+                    <button onClick={() => setSelectedCat("")}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${!selectedCat ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "border-gray-200 dark:border-gray-700 text-gray-400"}`}>
+                      All
+                    </button>
+                    {MEDICINE_CATEGORIES.map(cat => (
+                      <button key={cat} onClick={() => setSelectedCat(cat === selectedCat ? "" : cat)}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${selectedCat === cat ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "border-gray-200 dark:border-gray-700 text-gray-400"}`}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="max-h-44 overflow-y-auto space-y-0.5">
+                    {filteredMeds.length === 0 && (
+                      <p className="text-xs text-gray-400 text-center py-3">No medicines found. Ask admin to add.</p>
+                    )}
+                    {filteredMeds.map((med: any) => {
+                      const added = medicines.find(m => m.medicineId === med.id);
+                      return (
+                        <button key={med.id} onClick={() => !added && addMedicine(med)} disabled={!!added}
+                          className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-all ${
+                            added ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-100 dark:hover:bg-white/10 text-gray-900 dark:text-white"
+                          }`}>
+                          <span>
+                            <span className="font-medium">{med.name}</span>
+                            <span className="text-gray-400 ml-1">{med.type}</span>
+                          </span>
+                          {added && <Check className="w-3 h-3 text-gray-400" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button onClick={() => { setShowMedSearch(false); setMedSearch(""); }}
+                    className="mt-2 w-full text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-center">Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setShowMedSearch(true)}
+                  className="w-full h-10 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-xs text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-all flex items-center justify-center gap-1.5">
+                  {medicines.length === 0
+                    ? "Search or tap a medicine to start."
+                    : <><Plus className="w-3.5 h-3.5" /> Add medicine</>
+                  }
+                </button>
+              )}
+            </div>
+
+            <div className="h-px bg-gray-200 dark:bg-white/5" />
+
+            {/* REFER / SEND TO */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <SectionLabel>REFER / SEND TO</SectionLabel>
+                <button onClick={() => setShowReferral(!showReferral)}
+                  className="text-[10px] text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
+                  {showReferral ? "Hide" : "Expand"}
+                </button>
+              </div>
+              <AnimatePresence>
+                {showReferral && (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                    <div className="space-y-3 mb-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                        <input placeholder="Search specialist…" value={specSearch}
+                          onChange={e => setSpecSearch(e.target.value)}
+                          className="w-full h-9 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent pl-9 pr-3 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400" />
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {SPECIALISTS.filter(s => !specSearch || s.toLowerCase().includes(specSearch.toLowerCase())).map(s => (
+                          <button key={s}
+                            onClick={() => { setReferralSpec(s); setReferralCustom(""); }}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${
+                              referralSpec === s
+                                ? "bg-violet-600 text-white border-violet-600"
+                                : "border-gray-200 dark:border-gray-700 text-gray-500 hover:border-violet-400"
+                            }`}>{s}</button>
+                        ))}
+                      </div>
+                      <input placeholder="Or type custom specialist…" value={referralCustom}
+                        onChange={e => { setReferralCustom(e.target.value); if (e.target.value) setReferralSpec(""); }}
+                        className="w-full h-9 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400" />
+                      <textarea placeholder="Referral notes…" value={referralNotes}
+                        onChange={e => setReferralNotes(e.target.value)} rows={2}
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-2 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 resize-none focus:outline-none focus:border-gray-400" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {!showReferral && (
+                <div className="flex flex-wrap gap-1.5">
+                  {SPECIALISTS.slice(0, 6).map(s => (
+                    <button key={s}
+                      onClick={() => { setReferralSpec(s === referralSpec ? "" : s); setShowReferral(true); }}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${
+                        referralSpec === s
+                          ? "bg-violet-600 text-white border-violet-600"
+                          : "border-gray-200 dark:border-gray-700 text-gray-500 hover:border-violet-400"
+                      }`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="h-px bg-gray-200 dark:bg-white/5" />
+
+            {/* CLINICAL NOTES */}
+            <div>
+              <SectionLabel>CLINICAL NOTES</SectionLabel>
+              <textarea placeholder="Observations, follow-up advice…" value={doctorNotes}
+                onChange={e => setDoctorNotes(e.target.value)} rows={3}
+                className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 resize-none focus:outline-none focus:border-gray-400" />
+            </div>
+
+            <div className="h-px bg-gray-200 dark:bg-white/5" />
+
+            {/* FOLLOW-UP DATE */}
+            <div>
+              <SectionLabel>FOLLOW-UP DATE</SectionLabel>
+              <input type="date" value={followUpDate}
+                onChange={e => { setFollowUpDate(e.target.value); setFollowUpOverride(true); }}
+                className="w-full h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-transparent px-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-gray-400" />
+              {followUpDate && !followUpOverride && (
+                <p className="text-[10px] text-gray-400 mt-1">Auto-suggested from longest medicine duration.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Finalize button — sticky bottom */}
+          <div className="p-4 border-t border-gray-200 dark:border-white/5 shrink-0">
+            <button onClick={handleFinalize} disabled={saving || medicines.length === 0}
+              className="w-full h-12 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              {saving
+                ? <><RefreshCw className="w-4 h-4 animate-spin" /> Finalizing…</>
+                : <><UserCheck className="w-4 h-4" /> Finalize &amp; Send to Pharmacy</>
+              }
+            </button>
+            {medicines.length === 0 && (
+              <p className="text-[10px] text-gray-400 text-center mt-1.5">Add at least one medicine to finalize</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <AnimatePresence>
+        {subModal && (
+          <SubAreaModal complaint={subModal} areas={COMPLAINTS_WITH_SUB[subModal]}
+            onSelect={label => { setSubModal(null); setPendingLabel(label); }}
+            onClose={() => setSubModal(null)} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {pendingLabel && (
+          <DurationModal complaint={pendingLabel}
+            onSelect={duration => {
+              const full = duration ? `${pendingLabel} – ${duration}` : pendingLabel;
+              setSelectedComplaints(prev => [...prev, full]);
+              setPendingLabel(null);
+            }}
+            onClose={() => setPendingLabel(null)} />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default DoctorConsultation;

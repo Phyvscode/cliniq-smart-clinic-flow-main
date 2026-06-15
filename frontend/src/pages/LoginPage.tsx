@@ -1,88 +1,106 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Stethoscope, UserCheck, Pill } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Stethoscope, UserCheck, Pill, ArrowUpRight } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type Role = "doctor" | "reception" | "pharmacist";
 
+const roles: { key: Role; icon: typeof Stethoscope; category: string; label: string; desc: string; route: string }[] = [
+  { key: "doctor",     icon: Stethoscope, category: "CLINICAL",    label: "Doctor",       desc: "Pick your profile and sign in with PIN",  route: "/doctor"       },
+  { key: "reception",  icon: UserCheck,   category: "FRONT DESK",  label: "Receptionist", desc: "Register patients, tokens & queue",        route: "/reception"    },
+  { key: "pharmacist", icon: Pill,        category: "PHARMACY",    label: "Pharmacist",   desc: "Dispense, billing & inventory",            route: "/pharmacy/login" },
+];
+
 const LoginPage = () => {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState<Role | null>(null);
 
-  // Always clear session when landing on home page
-  // This allows any role to log in fresh on the same machine
   useEffect(() => {
     localStorage.removeItem("cliniq_token");
     localStorage.removeItem("cliniq_user");
   }, []);
 
-  const handleLogin = () => {
-    if (selected === "doctor")          navigate("/doctor");
-    else if (selected === "reception")  navigate("/reception");
-    else if (selected === "pharmacist") navigate("/pharmacy/login");
-  };
-
-  const roles = [
-    { key: "doctor"     as Role, icon: Stethoscope, label: "Doctor",    desc: "View patients & prescribe" },
-    { key: "reception"  as Role, icon: UserCheck,   label: "Reception", desc: "Manage queue & patients"   },
-    { key: "pharmacist" as Role, icon: Pill,        label: "Pharmacy",  desc: "Dispense medicines"        },
-  ];
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
-            <Stethoscope className="w-8 h-8 text-primary" />
+    <div className="min-h-screen bg-[#f0f0f8] dark:bg-[#0a0a0f] flex flex-col">
+      {/* Top bar */}
+      <header className="flex items-center justify-between px-8 py-5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-gray-900 dark:bg-white flex items-center justify-center shrink-0">
+            <span className="text-white dark:text-gray-900 text-sm font-bold leading-none">C</span>
           </div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">ClinIQ</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Smart Clinic Management</p>
+          <span className="font-semibold text-gray-900 dark:text-white text-sm">ClinIQ</span>
+          <span className="text-xs text-gray-400 font-light">os</span>
         </div>
-
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {roles.map(role => (
-            <motion.button
-              key={role.key}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setSelected(role.key)}
-              className={`flex flex-col items-center justify-center gap-3 py-7 px-4 rounded-2xl border-2 transition-all duration-200 text-center ${
-                selected === role.key
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-card hover:border-primary/30"
-              }`}
-            >
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                selected === role.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}>
-                <role.icon className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="font-semibold text-foreground text-sm">{role.label}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{role.desc}</div>
-              </div>
-            </motion.button>
-          ))}
+        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+            All systems nominal
+          </span>
+          <span className="text-gray-300 dark:text-gray-700">|</span>
+          <button onClick={() => window.open("https://cliniq-admin.vercel.app", "_blank")}
+            className="hover:text-gray-900 dark:hover:text-white transition-colors">
+            Admin console
+          </button>
+          <ThemeToggle />
         </div>
+      </header>
 
-        <Button
-          onClick={handleLogin}
-          disabled={!selected}
-          className="w-full h-12 text-base font-medium rounded-xl"
-          size="lg"
-        >
-          Continue
-        </Button>
+      {/* Main content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="text-center w-full max-w-3xl">
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          Admin? Use the <span className="font-medium text-primary">ClinIQ Admin App</span>
-        </p>
-      </motion.div>
+          <div className="inline-flex items-center gap-2 border border-gray-300/60 dark:border-gray-700 rounded-full px-4 py-1.5 text-xs text-gray-500 dark:text-gray-400 mb-8 bg-white/60 dark:bg-white/5 backdrop-blur-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 inline-block" />
+            WELCOME TO CLINIQ
+          </div>
+
+          <h1 className="text-5xl lg:text-6xl font-serif text-gray-900 dark:text-white leading-[1.1] mb-5">
+            Choose how you'll{" "}
+            <em className="text-gray-400 dark:text-gray-600 not-italic font-serif italic">enter</em>
+            {" "}the hospital
+            <br />today.
+          </h1>
+
+          <p className="text-gray-500 dark:text-gray-400 text-lg mb-14">
+            One calm, connected workspace for every member of your team.
+          </p>
+
+          <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
+            {roles.map((role, i) => (
+              <motion.button
+                key={role.key}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 + i * 0.08, duration: 0.4 }}
+                whileHover={{ y: -2 }}
+                onClick={() => navigate(role.route)}
+                className="relative bg-white dark:bg-gray-900 rounded-2xl p-6 text-left border border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg dark:hover:shadow-gray-900/50 transition-all duration-200 group"
+              >
+                <ArrowUpRight className="absolute top-4 right-4 w-4 h-4 text-gray-300 dark:text-gray-700 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors" />
+                <div className="w-10 h-10 rounded-full border border-gray-200 dark:border-gray-700 flex items-center justify-center mb-7">
+                  <role.icon className="w-4 h-4 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />
+                </div>
+                <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-1.5">
+                  {role.category}
+                </p>
+                <p className="text-2xl font-serif text-gray-900 dark:text-white mb-1.5">{role.label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{role.desc}</p>
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Footer */}
+      <footer className="flex items-center justify-center gap-6 px-8 py-4 text-xs text-gray-400 dark:text-gray-600 border-t border-gray-200/60 dark:border-gray-800/60">
+        <span>Secured with end-to-end encryption</span>
+        <span className="text-gray-300 dark:text-gray-700">|</span>
+        <span>HIPAA • ISO 27001</span>
+        <span className="text-gray-300 dark:text-gray-700">|</span>
+        <span>Last sync • just now</span>
+      </footer>
     </div>
   );
 };
