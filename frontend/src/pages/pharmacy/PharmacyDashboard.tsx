@@ -1,478 +1,493 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Pill, Search, CheckCircle2, Clock, X, RefreshCw, Plus, Trash2,
-  LogOut, KeyRound, Package, History, CreditCard, Banknote,
-  Smartphone, ChevronDown, AlertCircle, Check, User,
-  ShoppingCart, Printer, Send, IndianRupee, MinusCircle, PlusCircle,
+  Search, Bell, RefreshCw, X, Check, AlertTriangle,
+  LogOut, KeyRound, Archive, CheckCircle2, IndianRupee, Receipt,
+  Banknote, Smartphone, CreditCard, Wallet, Settings,
+  ShoppingCart, Plus, MinusCircle, PlusCircle, Trash2,
+  Printer, Send, User, Pill, ChevronRight,
 } from "lucide-react";
-import ChangePinModal from "@/components/ChangePinModal";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import ChangePinModal from "@/components/ChangePinModal";
 import {
-  apiPharmacyQueue, apiPharmacyLookup, apiPharmacyLookupRx,
-  apiPharmacyCollect, apiPharmacyMedicines, apiPharmacyAddMedicine,
-  apiPharmacyDeleteMedicine, apiOtcCreate,
+  apiPharmacyQueue, apiPharmacyCollect, apiPharmacyMedicines,
+  apiPharmacyAddMedicine, apiPharmacyDeleteMedicine, apiOtcCreate,
+  apiPharmacyLookup, apiPharmacyLookupRx,
 } from "@/lib/api";
 
-type Tab = "queue" | "lookup" | "medicines" | "walkin";
-
-const PAYMENT_METHODS = [
-  { key: "cash",      label: "Cash",      icon: Banknote },
-  { key: "upi",       label: "UPI",       icon: Smartphone },
-  { key: "card",      label: "Card",      icon: CreditCard },
-  { key: "insurance", label: "Insurance", icon: CheckCircle2 },
+// ── Constants ─────────────────────────────────────────────────────────────────
+const PAY_METHODS = [
+  { key: "upi",    label: "UPI",         icon: Smartphone },
+  { key: "cash",   label: "Cash",        icon: Banknote   },
+  { key: "credit", label: "Credit Card", icon: CreditCard },
+  { key: "debit",  label: "Debit Card",  icon: Wallet     },
 ];
 
-const fmt = (d: string | Date) =>
-  new Date(d).toLocaleString("en-IN", { day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+const fmtDate = (d: string | Date) => {
+  const dt = new Date(d);
+  return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    + ", " + dt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+};
 
-const fmtDate = (d: string | Date) =>
-  new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+const medFreq = (med: any): string => {
+  if (med.frequencyInterval) return med.frequencyInterval;
+  const m = med.morning   ? 1 : 0;
+  const a = med.afternoon ? 1 : 0;
+  const e = med.evening   ? 1 : 0;
+  if (m + a + e === 0) return "As directed";
+  return `${m}-${a}-${e}`;
+};
 
-// ─── Medicine row display ─────────────────────────────────────────────────────
-const MedRow = ({ med, i }: { med: any; i: number }) => {
-  const slots = [
-    med.morning && "Morning", med.afternoon && "Afternoon",
-    med.evening && "Evening", med.night && "Night",
-  ].filter(Boolean);
-  const timing = med.frequencyInterval
-    ? ({ "4h":"Every 4h","6h":"Every 6h","8h":"Every 8h","12h":"Every 12h" } as any)[med.frequencyInterval] || med.frequencyInterval
-    : slots.join(", ") || "As directed";
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+const PharmacySidebar = ({ onLogout, onChangePin }: { onLogout: () => void; onChangePin: () => void }) => {
+  const storedUser = localStorage.getItem("cliniq_user");
+  const userName   = storedUser ? JSON.parse(storedUser).name : "Pharmacist";
+
   return (
-    <div className={`flex items-start gap-3 py-2.5 ${i > 0 ? "border-t border-border/50" : ""}`}>
-      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0 mt-0.5">{i+1}</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground">
-          {med.medicine?.name || med.medicineName || "Unknown"}
-          {med.dosageAmount && <span className="ml-1.5 text-xs font-normal text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded">{med.dosageAmount}{med.dosageUnit}</span>}
-        </p>
-        <p className="text-xs text-muted-foreground mt-0.5">{timing} · {med.durationDays} day{med.durationDays !== 1 ? "s":""}</p>
-        {med.instructions && <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{med.instructions}</p>}
+    <div className="w-[200px] shrink-0 bg-white dark:bg-[#0d0d1a] border-r border-gray-100 dark:border-white/5 flex flex-col h-screen sticky top-0">
+      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-100 dark:border-white/5">
+        <div className="w-8 h-8 rounded-full bg-gray-900 dark:bg-white flex items-center justify-center shrink-0">
+          <span className="text-white dark:text-gray-900 text-xs font-bold">C</span>
+        </div>
+        <span className="font-semibold text-gray-900 dark:text-white text-sm">ClinIQ</span>
+        <span className="text-[10px] text-gray-400 font-light">os</span>
+        <div className="ml-auto"><ThemeToggle /></div>
+      </div>
+
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
+        {[
+          { icon: Pill,     label: "Pharmacy", active: true  },
+          { icon: Bell,     label: "Alerts",   active: false },
+          { icon: Settings, label: "Settings", active: false },
+        ].map(item => (
+          <button key={item.label}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+              item.active
+                ? "bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-medium"
+                : "text-gray-300 dark:text-gray-700 cursor-not-allowed"
+            }`}
+            disabled={!item.active}>
+            <item.icon className="w-4 h-4 shrink-0" strokeWidth={item.active ? 2 : 1.5} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="px-3 pb-4 border-t border-gray-100 dark:border-white/5 pt-3 space-y-1">
+        <button onClick={onLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
+          <LogOut className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+          <span>Sign out</span>
+        </button>
+        <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-white/5">
+          <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center shrink-0">
+            <span className="text-xs font-semibold text-gray-600 dark:text-white/80">{userName.charAt(0).toUpperCase()}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-gray-900 dark:text-white/80 truncate">{userName}</p>
+            <p className="text-[10px] text-gray-400 truncate">Pharmacy · Pharmacist</p>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-// ─── Prescription card ────────────────────────────────────────────────────────
-const RxCard = ({ rx, onCollect }: { rx: any; onCollect: () => void }) => {
-  const [expanded,  setExpanded]  = useState(false);
-  const [method,    setMethod]    = useState("cash");
-  const [collecting,setCollecting]= useState(false);
+// ── Detail Panel ──────────────────────────────────────────────────────────────
+const DetailPanel = ({ rx, onClose, onCollect }: { rx: any; onClose: () => void; onCollect: () => void }) => {
+  const [medStatus,  setMedStatus]  = useState<Record<string, "dispensed" | "unavailable">>({});
+  const [payMethod,  setPayMethod]  = useState("upi");
+  const [discount,   setDiscount]   = useState(0);
+  const [collecting, setCollecting] = useState(false);
+
+  const meds: any[] = rx.medicines || [];
+
+  const total = meds.reduce((s: number, m: any) => {
+    const price = m.medicine?.price ?? m.price ?? 0;
+    const qty   = m.quantity ?? 1;
+    return s + price * qty;
+  }, 0);
+  const finalAmt = Math.max(0, total - discount);
 
   const handleCollect = async () => {
     setCollecting(true);
-    try { await apiPharmacyCollect(rx._id, { paymentMethod: method }); onCollect(); }
-    catch (e: any) { alert(e.message || "Failed"); }
+    try {
+      await apiPharmacyCollect(rx._id, { paymentMethod: payMethod, discount, total: finalAmt });
+      onCollect();
+    } catch (e: any) { alert(e.message || "Failed"); }
     finally { setCollecting(false); }
   };
 
+  const rxCode  = rx.rxCode  || `PRX-${String(rx._id || "").slice(-4).toUpperCase().padStart(4,"0")}`;
+  const ptCode  = rx.patient?.permanentCode || `PT-${String(rx.patient?._id || rx.patientId || "").slice(-4).toUpperCase().padStart(4,"0")}`;
+  const docName = rx.doctor?.name || rx.doctorName || "—";
+  const dept    = rx.doctor?.specialization || rx.department || "General Medicine";
+  const date    = rx.createdAt ? fmtDate(rx.createdAt) : "—";
+
   return (
-    <motion.div initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }}
-      className={`bg-card border rounded-2xl overflow-hidden ${rx.collectedByPharmacy ? "border-emerald-200 dark:border-emerald-800/50" : "border-border"}`}>
+    <div className="w-[380px] shrink-0 bg-white dark:bg-[#0d0d1a] border-l border-gray-100 dark:border-white/5 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 cursor-pointer" onClick={() => setExpanded(!expanded)}>
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-          <User className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-foreground">{rx.patient?.name}</p>
-            {rx.patient?.permanentCode && (
-              <span className="text-[10px] font-mono bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
-                ID: {rx.patient.permanentCode}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {rx.patient?.age}y · {rx.patient?.gender} · Dr. {rx.doctor?.name} · {fmtDate(rx.createdAt)}
+      <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-white/5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600">
+            {rxCode} · {ptCode}
           </p>
-          {rx.rxCode && <p className="text-[10px] font-mono text-primary mt-0.5">Rx: {rx.rxCode}</p>}
+          <button onClick={onClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10">
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {rx.collectedByPharmacy
-            ? <Badge variant="secondary" className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs">
-                ✓ Dispensed {rx.collectedAt ? fmtDate(rx.collectedAt) : ""}
-              </Badge>
-            : <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs">Pending</Badge>
-          }
-          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? "rotate-180":""}`} />
-        </div>
+        <h2 className="text-3xl font-serif text-gray-900 dark:text-white mb-1">{rx.patient?.name || "Patient"}</h2>
+        <p className="text-xs text-gray-400 dark:text-gray-600">Dr. {docName} · {dept} · {date}</p>
       </div>
 
-      <AnimatePresence>
-        {expanded && (
-          <motion.div initial={{ height:0 }} animate={{ height:"auto" }} exit={{ height:0 }} className="overflow-hidden">
-            <div className="px-5 pb-5 border-t border-border/50 pt-4 space-y-4">
-              {/* Diagnosis */}
-              {rx.diagnosis && (
-                <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl px-4 py-2.5">
-                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-0.5">Diagnosis</p>
-                  <p className="text-sm text-foreground">{rx.diagnosis}</p>
-                </div>
-              )}
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        {/* Medicines */}
+        <div>
+          <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-3">MEDICINES</p>
+          <div className="space-y-3">
+            {meds.length === 0 && (
+              <p className="text-sm text-gray-400">No medicines prescribed.</p>
+            )}
+            {meds.map((med: any, i: number) => {
+              const name     = med.medicine?.name || med.medicineName || "Unknown";
+              const strength = med.dosageAmount ? `${med.dosageAmount}${med.dosageUnit || ""}` : "";
+              const form     = med.medicine?.type || med.form || "Tablet";
+              const generic  = med.medicine?.genericName || med.generic || "";
+              const freq     = medFreq(med);
+              const timing   = med.instructions || "";
+              const days     = med.durationDays ? `${med.durationDays} Days` : "";
+              const price    = med.medicine?.price ?? med.price ?? 0;
+              const key      = `${rx._id}-${i}`;
+              const status   = medStatus[key];
 
-              {/* Medicines */}
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                  Medicines ({rx.medicines?.length || 0})
-                </p>
-                <div className="bg-muted/30 rounded-xl px-3 divide-y divide-border/40">
-                  {(rx.medicines || []).map((m: any, i: number) => (
-                    <MedRow key={i} med={m} i={i} />
-                  ))}
-                </div>
-              </div>
-
-              {/* Collect section */}
-              {!rx.collectedByPharmacy && (
-                <div className="space-y-3 pt-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment Method</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {PAYMENT_METHODS.map(pm => (
-                      <button key={pm.key} onClick={() => setMethod(pm.key)}
-                        className={`py-2.5 rounded-xl border-2 text-xs font-medium flex flex-col items-center gap-1 transition-all ${
-                          method === pm.key ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
-                        }`}>
-                        <pm.icon className="w-3.5 h-3.5" />
-                        {pm.label}
-                      </button>
-                    ))}
+              return (
+                <div key={i} className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        <span className="font-bold">{name}</span>
+                        {strength && <span className="font-normal text-gray-500 dark:text-gray-400"> {strength}</span>}
+                        {form && <span className="font-normal text-gray-400 dark:text-gray-600"> · {form}</span>}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">
+                        {[generic, freq, timing, days].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    {price > 0 && (
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 shrink-0">₹{price}</span>
+                    )}
                   </div>
-                  <Button className="w-full h-11 rounded-xl gap-2" onClick={handleCollect} disabled={collecting}>
-                    {collecting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                    Dispense Medicines & Collect Payment
-                  </Button>
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => setMedStatus(p => ({ ...p, [key]: p[key] === "dispensed" ? undefined as any : "dispensed" }))}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                        status === "dispensed"
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                          : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300"
+                      }`}>
+                      <Check className="w-3 h-3" /> Dispensed
+                    </button>
+                    <button onClick={() => setMedStatus(p => ({ ...p, [key]: p[key] === "unavailable" ? undefined as any : "unavailable" }))}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                        status === "unavailable"
+                          ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                          : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300"
+                      }`}>
+                      <AlertTriangle className="w-3 h-3" /> Not Available
+                    </button>
+                  </div>
                 </div>
-              )}
+              );
+            })}
+          </div>
+        </div>
 
-              {rx.collectedByPharmacy && rx.collectedAt && (
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Dispensed on {fmt(rx.collectedAt)} · {rx.paymentMethod || "cash"}
-                </div>
-              )}
+        {/* Payment */}
+        {!rx.collectedByPharmacy && (
+          <div>
+            <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-3">PAYMENT</p>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {PAY_METHODS.map(pm => (
+                <button key={pm.key} onClick={() => setPayMethod(pm.key)}
+                  className={`h-11 rounded-xl border font-medium text-sm transition-all ${
+                    payMethod === pm.key
+                      ? "bg-gray-900 dark:bg-white border-gray-900 dark:border-white text-white dark:text-gray-900"
+                      : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400"
+                  }`}>
+                  {pm.label}
+                </button>
+              ))}
             </div>
-          </motion.div>
+
+            <div className="space-y-2 mb-5">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Total</span>
+                <span className="text-gray-900 dark:text-white font-medium">₹{total}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
+                <input type="number" min={0} max={total} value={discount}
+                  onChange={e => setDiscount(Math.min(total, Math.max(0, Number(e.target.value))))}
+                  className="w-20 h-7 text-sm text-right bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-lg px-2 text-gray-700 dark:text-gray-300 focus:outline-none" />
+              </div>
+              <div className="flex justify-between text-sm pt-1 border-t border-gray-100 dark:border-white/5">
+                <span className="text-gray-500 dark:text-gray-400">Final amount</span>
+                <span className="text-gray-900 dark:text-white font-semibold">₹{finalAmt}</span>
+              </div>
+            </div>
+
+            <button onClick={handleCollect} disabled={collecting}
+              className="w-full h-11 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors disabled:opacity-40">
+              {collecting
+                ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processing…</>
+                : <>Complete Transaction <ChevronRight className="w-4 h-4" /></>}
+            </button>
+          </div>
         )}
-      </AnimatePresence>
-    </motion.div>
+
+        {rx.collectedByPharmacy && (
+          <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-700 rounded-xl px-4 py-3">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
+              Dispensed · {rx.paymentMethod || "cash"} · {rx.collectedAt ? fmtDate(rx.collectedAt) : ""}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-// ─── Walk-in Sale Tab ─────────────────────────────────────────────────────────
+// ── Walk-in modal ─────────────────────────────────────────────────────────────
 interface OtcItem { medicineId: string; medicineName: string; unitPrice: number; quantity: number; }
 
-const WalkInTab = ({ medicines }: { medicines: any[] }) => {
+const WalkInModal = ({ medicines, onClose }: { medicines: any[]; onClose: () => void }) => {
   const [customerName,  setCustomerName]  = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [cart,          setCart]          = useState<OtcItem[]>([]);
   const [medSearch,     setMedSearch]     = useState("");
-  const [showMedDrop,   setShowMedDrop]   = useState(false);
+  const [showDrop,      setShowDrop]      = useState(false);
   const [discount,      setDiscount]      = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [payMethod,     setPayMethod]     = useState("cash");
   const [submitting,    setSubmitting]    = useState(false);
   const [result,        setResult]        = useState<any>(null);
   const [error,         setError]         = useState("");
 
-  const filteredMeds = medicines.filter(m =>
-    m.name.toLowerCase().includes(medSearch.toLowerCase())
-  ).slice(0, 8);
+  const filtered = medicines.filter(m => m.name.toLowerCase().includes(medSearch.toLowerCase())).slice(0, 8);
+  const subtotal  = cart.reduce((s, it) => s + it.unitPrice * it.quantity, 0);
+  const grandTotal = Math.max(0, subtotal - discount);
 
   const addToCart = (med: any) => {
     setCart(prev => {
-      const existing = prev.find(it => it.medicineId === med._id);
-      if (existing) return prev.map(it => it.medicineId === med._id ? { ...it, quantity: it.quantity + 1 } : it);
+      const ex = prev.find(it => it.medicineId === med._id);
+      if (ex) return prev.map(it => it.medicineId === med._id ? { ...it, quantity: it.quantity + 1 } : it);
       return [...prev, { medicineId: med._id, medicineName: med.name, unitPrice: med.price || 0, quantity: 1 }];
     });
-    setMedSearch(""); setShowMedDrop(false);
-  };
-
-  const updateQty = (id: string, delta: number) => {
-    setCart(prev => prev.map(it => it.medicineId === id
-      ? { ...it, quantity: Math.max(1, it.quantity + delta) } : it));
-  };
-
-  const updatePrice = (id: string, price: number) => {
-    setCart(prev => prev.map(it => it.medicineId === id ? { ...it, unitPrice: price } : it));
-  };
-
-  const removeItem = (id: string) => setCart(prev => prev.filter(it => it.medicineId !== id));
-
-  const subtotal   = cart.reduce((s, it) => s + it.unitPrice * it.quantity, 0);
-  const grandTotal = Math.max(0, subtotal - discount);
-
-  const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  const printBill = (billText: string, billNum: string) => {
-    const win = window.open("", "_blank", "width=400,height=600");
-    if (!win) return;
-    win.document.write(`
-      <html><head><title>Bill ${billNum}</title>
-      <style>
-        body { font-family: monospace; font-size: 13px; padding: 16px; max-width: 320px; margin: 0 auto; }
-        pre  { white-space: pre-wrap; word-wrap: break-word; }
-        h2   { text-align: center; }
-        @media print { button { display: none; } }
-      </style></head><body>
-      <h2>ClinIQ Pharmacy</h2>
-      <pre>${billText.replace(/\*/g, "").replace(/_/g, "")}</pre>
-      <br/>
-      <button onclick="window.print()">🖨️ Print</button>
-      </body></html>
-    `);
-    win.document.close();
-    setTimeout(() => win.print(), 500);
+    setMedSearch(""); setShowDrop(false);
   };
 
   const handleSell = async () => {
-    if (cart.length === 0) { setError("Add at least one medicine to the cart"); return; }
+    if (cart.length === 0) { setError("Add at least one medicine"); return; }
     setError(""); setSubmitting(true);
     try {
       const r = await apiOtcCreate({
         customerName: customerName.trim() || undefined,
         customerPhone: customerPhone.trim() || undefined,
         items: cart.map(it => ({ ...it, total: it.unitPrice * it.quantity })),
-        discount,
-        paymentMethod,
+        discount, paymentMethod: payMethod,
       });
       setResult(r);
-      // Auto print if no phone or WhatsApp failed
-      if (!customerPhone.trim() || r.billSentVia !== "whatsapp") {
-        printBill(r.billText, r.billNumber);
-      }
       setCart([]); setCustomerName(""); setCustomerPhone(""); setDiscount(0);
     } catch (e: any) { setError(e.message || "Sale failed"); }
     finally { setSubmitting(false); }
   };
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-bold text-foreground">Walk-in Sale</h2>
-        <p className="text-sm text-muted-foreground">Sell medicines without a prescription</p>
-      </div>
-
-      {/* Success result */}
-      {result && (
-        <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }}
-          className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-            <p className="font-semibold text-emerald-700 dark:text-emerald-400">{result.message}</p>
-          </div>
-          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-mono">Bill: {result.billNumber}</p>
-          <div className="flex gap-2 mt-3">
-            <Button size="sm" variant="outline" className="rounded-xl gap-1.5"
-              onClick={() => printBill(result.billText, result.billNumber)}>
-              <Printer className="w-3.5 h-3.5" /> Print Bill
-            </Button>
-            <Button size="sm" variant="outline" className="rounded-xl gap-1.5"
-              onClick={() => setResult(null)}>
-              <Plus className="w-3.5 h-3.5" /> New Sale
-            </Button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Customer details (optional) */}
-      <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
-        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
-          Customer Details <span className="font-normal normal-case">(optional)</span>
-        </h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Customer name" value={customerName}
-              onChange={e => setCustomerName(e.target.value)}
-              className="pl-9 h-10 rounded-xl" />
-          </div>
-          <div className="relative">
-            <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Phone (for WhatsApp bill)" value={customerPhone}
-              onChange={e => setCustomerPhone(e.target.value)}
-              className="pl-9 h-10 rounded-xl" type="tel" maxLength={13} />
-          </div>
+    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h2 className="text-xl font-serif text-gray-900 dark:text-white">Walk-in Sale</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X className="w-4 h-4" /></button>
         </div>
-        {customerPhone && (
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-            <Send className="w-3 h-3" /> Bill will be sent to this number via WhatsApp
-          </p>
-        )}
-        {!customerPhone && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <Printer className="w-3 h-3" /> No phone — bill will open for printing
-          </p>
-        )}
-      </div>
-
-      {/* Medicine search + cart */}
-      <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Medicines</h3>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search and add medicine..." value={medSearch}
-            onChange={e => { setMedSearch(e.target.value); setShowMedDrop(true); }}
-            onFocus={() => setShowMedDrop(true)}
-            className="pl-9 h-11 rounded-xl" />
-          {showMedDrop && medSearch && (
-            <>
-              <div className="fixed inset-0 z-20" onClick={() => setShowMedDrop(false)} />
-              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
-                {filteredMeds.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No medicines found</p>
-                ) : filteredMeds.map(m => (
-                  <button key={m._id} onClick={() => addToCart(m)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted transition-colors text-left">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{m.name}</p>
-                      <p className="text-xs text-muted-foreground">{m.type} {m.unit && `· ${m.unit}`}</p>
-                    </div>
-                    <span className="text-sm font-semibold text-primary shrink-0 ml-2">
-                      {m.price ? `₹${m.price}` : "No price"}
-                    </span>
+        <div className="px-6 py-5 space-y-4 max-h-[75vh] overflow-y-auto">
+          {result && (
+            <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-700 rounded-xl px-4 py-3">
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{result.message}</p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono mt-1">Bill: {result.billNumber}</p>
+              <button onClick={() => setResult(null)} className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">+ New sale</button>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <Input placeholder="Customer name" value={customerName} onChange={e => setCustomerName(e.target.value)} className="h-10 rounded-xl" />
+            <Input placeholder="Phone (WhatsApp)" type="tel" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} className="h-10 rounded-xl" />
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <Input placeholder="Search medicines…" value={medSearch}
+              onChange={e => { setMedSearch(e.target.value); setShowDrop(true); }}
+              onFocus={() => setShowDrop(true)} className="pl-8 h-10 rounded-xl" />
+            {showDrop && medSearch && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setShowDrop(false)} />
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-30 max-h-44 overflow-y-auto">
+                  {filtered.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4">No medicines found</p>
+                  ) : filtered.map(m => (
+                    <button key={m._id} onClick={() => addToCart(m)}
+                      className="w-full flex justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-white/5 text-left text-sm">
+                      <span className="text-gray-900 dark:text-white">{m.name}</span>
+                      <span className="text-gray-400 text-xs">{m.price ? `₹${m.price}` : "—"}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          {cart.length > 0 && (
+            <div className="space-y-2">
+              {cart.map(it => (
+                <div key={it.medicineId} className="flex items-center gap-3 bg-gray-50 dark:bg-white/5 rounded-xl px-3 py-2">
+                  <span className="flex-1 text-sm text-gray-900 dark:text-white truncate">{it.medicineName}</span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setCart(p => p.map(x => x.medicineId === it.medicineId ? { ...x, quantity: Math.max(1, x.quantity - 1) } : x))}><MinusCircle className="w-4 h-4 text-gray-400" /></button>
+                    <span className="w-5 text-center text-sm font-semibold">{it.quantity}</span>
+                    <button onClick={() => setCart(p => p.map(x => x.medicineId === it.medicineId ? { ...x, quantity: x.quantity + 1 } : x))}><PlusCircle className="w-4 h-4 text-gray-400" /></button>
+                  </div>
+                  <input type="number" value={it.unitPrice} onChange={e => setCart(p => p.map(x => x.medicineId === it.medicineId ? { ...x, unitPrice: Number(e.target.value) } : x))}
+                    className="w-16 h-6 text-xs text-right bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 focus:outline-none" />
+                  <button onClick={() => setCart(p => p.filter(x => x.medicineId !== it.medicineId))} className="text-gray-400 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm px-1">
+                <span className="text-gray-400">Subtotal</span>
+                <span className="font-semibold text-gray-900 dark:text-white">₹{subtotal}</span>
+              </div>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-sm text-gray-400">Discount</span>
+                <input type="number" min={0} max={subtotal} value={discount} onChange={e => setDiscount(Math.min(subtotal, Number(e.target.value)))}
+                  className="w-20 h-7 text-xs text-right bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-lg px-2 focus:outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {[{ key:"cash", label:"Cash" }, { key:"upi", label:"UPI" }].map(m => (
+                  <button key={m.key} onClick={() => setPayMethod(m.key)}
+                    className={`h-9 rounded-xl border text-sm font-medium transition-all ${payMethod === m.key ? "border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900" : "border-gray-200 dark:border-gray-700 text-gray-500 hover:border-gray-400"}`}>
+                    {m.label}
                   </button>
                 ))}
               </div>
-            </>
+            </div>
           )}
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <button onClick={handleSell} disabled={submitting || cart.length === 0}
+            className="w-full h-11 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors disabled:opacity-40">
+            {submitting ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processing…</> : `Collect ₹${grandTotal}`}
+          </button>
         </div>
-
-        {/* Cart items */}
-        {cart.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">Search and add medicines above</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {cart.map(it => (
-              <div key={it.medicineId} className="flex items-center gap-3 bg-muted/30 rounded-xl px-3 py-2.5">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{it.medicineName}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <IndianRupee className="w-3 h-3 text-muted-foreground shrink-0" />
-                    <input
-                      type="number" min="0" value={it.unitPrice}
-                      onChange={e => updatePrice(it.medicineId, Number(e.target.value))}
-                      className="w-20 h-6 text-xs border border-border rounded-lg px-2 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                    <span className="text-xs text-muted-foreground">per unit</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button onClick={() => updateQty(it.medicineId, -1)}
-                    className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground">
-                    <MinusCircle className="w-4 h-4" />
-                  </button>
-                  <span className="w-6 text-center text-sm font-bold text-foreground">{it.quantity}</span>
-                  <button onClick={() => updateQty(it.medicineId, 1)}
-                    className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground">
-                    <PlusCircle className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="text-right shrink-0 w-16">
-                  <p className="text-sm font-bold text-foreground">{fmt(it.unitPrice * it.quantity)}</p>
-                </div>
-                <button onClick={() => removeItem(it.medicineId)}
-                  className="w-7 h-7 rounded-lg hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Bill summary */}
-      {cart.length > 0 && (
-        <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Bill Summary</h3>
-
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-muted-foreground">
-              <span>Subtotal ({cart.length} item{cart.length > 1 ? "s" : ""})</span>
-              <span>{fmt(subtotal)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Discount (₹)</span>
-              <input type="number" min="0" max={subtotal} value={discount}
-                onChange={e => setDiscount(Math.min(subtotal, Number(e.target.value)))}
-                className="w-24 h-7 text-sm border border-border rounded-lg px-2 bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-ring" />
-            </div>
-            <div className="flex justify-between font-bold text-base border-t border-border pt-2">
-              <span className="text-foreground">Grand Total</span>
-              <span className="text-primary">{fmt(grandTotal)}</span>
-            </div>
-          </div>
-
-          {/* Payment method */}
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { key:"cash",      label:"Cash",      icon:Banknote     },
-              { key:"upi",       label:"UPI",       icon:Smartphone   },
-              { key:"card",      label:"Card",      icon:CreditCard   },
-              { key:"insurance", label:"Insurance", icon:CheckCircle2 },
-            ].map(pm => (
-              <button key={pm.key} onClick={() => setPaymentMethod(pm.key)}
-                className={`py-2.5 rounded-xl border-2 text-xs font-medium flex flex-col items-center gap-1 transition-all ${
-                  paymentMethod === pm.key
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40"
-                }`}>
-                <pm.icon className="w-3.5 h-3.5" />
-                {pm.label}
-              </button>
-            ))}
-          </div>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button onClick={handleSell} disabled={submitting || cart.length === 0}
-            className="w-full h-12 rounded-xl gap-2 text-base font-medium">
-            {submitting ? (
-              <><RefreshCw className="w-4 h-4 animate-spin" /> Processing...</>
-            ) : customerPhone ? (
-              <><Send className="w-4 h-4" /> Collect {fmt(grandTotal)} & Send WhatsApp Bill</>
-            ) : (
-              <><Printer className="w-4 h-4" /> Collect {fmt(grandTotal)} & Print Bill</>
-            )}
-          </Button>
-        </div>
-      )}
+      </motion.div>
     </div>
   );
 };
 
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
+// ── Medicines Modal ───────────────────────────────────────────────────────────
+const MedicinesModal = ({ medicines, onClose, onRefresh }: { medicines: any[]; onClose: () => void; onRefresh: () => void }) => {
+  const [search,    setSearch]    = useState("");
+  const [showAdd,   setShowAdd]   = useState(false);
+  const [newMed,    setNewMed]    = useState({ name: "", category: "", manufacturer: "", unit: "" });
+  const [adding,    setAdding]    = useState(false);
+  const [error,     setError]     = useState("");
+
+  const filtered = medicines.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
+
+  const handleAdd = async () => {
+    if (!newMed.name.trim()) { setError("Name is required"); return; }
+    setAdding(true); setError("");
+    try {
+      await apiPharmacyAddMedicine(newMed);
+      setNewMed({ name: "", category: "", manufacturer: "", unit: "" });
+      setShowAdd(false); onRefresh();
+    } catch (e: any) { setError(e.message || "Failed"); }
+    finally { setAdding(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this medicine?")) return;
+    await apiPharmacyDeleteMedicine(id); onRefresh();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h2 className="text-xl font-serif text-gray-900 dark:text-white">Medicines ({medicines.length})</h2>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowAdd(s => !s)} className="h-8 px-3 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-semibold flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5" /> Add
+            </button>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+        <div className="px-6 py-4 max-h-[70vh] overflow-y-auto space-y-3">
+          {showAdd && (
+            <div className="space-y-2 bg-gray-50 dark:bg-white/5 rounded-xl p-4">
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="Name *" value={newMed.name} onChange={e => setNewMed(p => ({...p, name: e.target.value}))} className="h-9 rounded-xl" />
+                <Input placeholder="Category" value={newMed.category} onChange={e => setNewMed(p => ({...p, category: e.target.value}))} className="h-9 rounded-xl" />
+                <Input placeholder="Manufacturer" value={newMed.manufacturer} onChange={e => setNewMed(p => ({...p, manufacturer: e.target.value}))} className="h-9 rounded-xl" />
+                <Input placeholder="Unit (tab/ml…)" value={newMed.unit} onChange={e => setNewMed(p => ({...p, unit: e.target.value}))} className="h-9 rounded-xl" />
+              </div>
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <button onClick={handleAdd} disabled={adding}
+                className="w-full h-9 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-40">
+                {adding ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Add Medicine
+              </button>
+            </div>
+          )}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <Input placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 rounded-xl" />
+          </div>
+          <div className="divide-y divide-gray-100 dark:divide-white/5">
+            {filtered.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">No medicines found</p>
+            ) : filtered.map(m => (
+              <div key={m._id} className="flex items-center gap-3 py-2.5">
+                <Pill className="w-4 h-4 text-gray-300 dark:text-gray-700 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{m.name}</p>
+                  <p className="text-xs text-gray-400">{[m.category, m.manufacturer, m.unit].filter(Boolean).join(" · ")}</p>
+                </div>
+                <button onClick={() => handleDelete(m._id)} className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// ── Main Dashboard ────────────────────────────────────────────────────────────
 const PharmacyDashboard = () => {
   const navigate = useNavigate();
-  const [tab,           setTab]           = useState<Tab>("queue");
-  const [queue,         setQueue]         = useState<any[]>([]);
-  const [queueLoading,  setQueueLoading]  = useState(true);
-  const [lookupCode,    setLookupCode]    = useState("");
-  const [lookupResult,  setLookupResult]  = useState<any>(null);
-  const [lookupError,   setLookupError]   = useState("");
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [medicines,     setMedicines]     = useState<any[]>([]);
-  const [medSearch,     setMedSearch]     = useState("");
-  const [newMed,        setNewMed]        = useState({ name:"", category:"", manufacturer:"", unit:"" });
-  const [addingMed,     setAddingMed]     = useState(false);
-  const [showAddMed,    setShowAddMed]    = useState(false);
-  const [medError,      setMedError]      = useState("");
-  const [showChangePin, setShowChangePin] = useState(false);
-
-  const storedUser = localStorage.getItem("cliniq_user");
-  const userName   = storedUser ? JSON.parse(storedUser).name : "Pharmacist";
+  const [queue,        setQueue]        = useState<any[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [selected,     setSelected]     = useState<any>(null);
+  const [search,       setSearch]       = useState("");
+  const [medicines,    setMedicines]    = useState<any[]>([]);
+  const [showWalkin,   setShowWalkin]   = useState(false);
+  const [showMeds,     setShowMeds]     = useState(false);
+  const [showChangePin,setShowChangePin]= useState(false);
 
   const loadQueue = useCallback(async () => {
-    setQueueLoading(true);
+    setLoading(true);
     try { const r = await apiPharmacyQueue(); setQueue(r.prescriptions || []); }
-    catch {} finally { setQueueLoading(false); }
+    catch {} finally { setLoading(false); }
   }, []);
 
   const loadMedicines = useCallback(async () => {
@@ -480,44 +495,11 @@ const PharmacyDashboard = () => {
     catch {}
   }, []);
 
-  useEffect(() => { loadQueue(); loadMedicines(); }, []);
-
-  const handleLookup = async () => {
-    const code = lookupCode.trim();
-    if (!code) return;
-    setLookupLoading(true); setLookupError(""); setLookupResult(null);
-    try {
-      // Try patient code (6 digits) or rxCode (11 digits)
-      if (/^\d{6}$/.test(code)) {
-        const r = await apiPharmacyLookup(code);
-        setLookupResult({ type: "patient", ...r });
-      } else if (/^\d{11}$/.test(code)) {
-        const r = await apiPharmacyLookupRx(code);
-        setLookupResult({ type: "rx", prescription: r.prescription });
-      } else {
-        setLookupError("Enter a 6-digit patient ID or 11-digit Rx code");
-      }
-    } catch (e: any) { setLookupError(e.message || "Not found"); }
-    finally { setLookupLoading(false); }
-  };
-
-  const handleAddMedicine = async () => {
-    if (!newMed.name.trim()) { setMedError("Medicine name is required"); return; }
-    setAddingMed(true); setMedError("");
-    try {
-      await apiPharmacyAddMedicine(newMed);
-      setNewMed({ name:"", category:"", manufacturer:"", unit:"" });
-      setShowAddMed(false);
-      await loadMedicines();
-    } catch (e: any) { setMedError(e.message || "Failed to add"); }
-    finally { setAddingMed(false); }
-  };
-
-  const handleDeleteMedicine = async (id: string) => {
-    if (!confirm("Delete this medicine?")) return;
-    await apiPharmacyDeleteMedicine(id);
-    await loadMedicines();
-  };
+  useEffect(() => {
+    loadQueue(); loadMedicines();
+    const id = setInterval(loadQueue, 10000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("cliniq_token");
@@ -525,256 +507,179 @@ const PharmacyDashboard = () => {
     navigate("/");
   };
 
-  const pendingCount = queue.filter(rx => !rx.collectedByPharmacy).length;
-  const filteredMeds = medicines.filter(m => m.name.toLowerCase().includes(medSearch.toLowerCase()));
+  const pendingCount   = queue.filter(rx => !rx.collectedByPharmacy).length;
+  const completedCount = queue.filter(rx => rx.collectedByPharmacy).length;
+  const revenueToday   = queue.filter(rx => rx.collectedByPharmacy).reduce((s, rx) => s + (rx.totalAmount || 0), 0);
+
+  const displayQueue = queue.filter(rx =>
+    !search || (rx.patient?.name || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const fmtTime = (d: string) => {
+    try { return new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }); }
+    catch { return "—"; }
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card px-6 py-3 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-          <Pill className="w-5 h-5 text-primary" />
+    <div className="flex h-screen bg-[#f5f5fa] dark:bg-[#0a0a0f] overflow-hidden">
+      <PharmacySidebar onLogout={handleLogout} onChangePin={() => setShowChangePin(true)} />
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top bar */}
+        <div className="bg-white dark:bg-[#0d0d1a] border-b border-gray-100 dark:border-white/5 px-6 py-3 flex items-center gap-3 shrink-0">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search patients, prescriptions..."
+              className="w-full h-9 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg pl-9 pr-10 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none transition-colors" />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-300 dark:text-gray-700 border border-gray-200 dark:border-gray-700 rounded px-1">⌘K</span>
+          </div>
+          <ThemeToggle />
+          <button onClick={() => setShowWalkin(true)}
+            className="h-9 px-4 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-400 hover:border-gray-400 flex items-center gap-1.5 transition-colors">
+            <ShoppingCart className="w-3.5 h-3.5" /> Walk-in
+          </button>
+          <button onClick={() => setShowMeds(true)}
+            className="h-9 px-4 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-400 hover:border-gray-400 flex items-center gap-1.5 transition-colors">
+            <Pill className="w-3.5 h-3.5" /> Medicines
+          </button>
+          <button onClick={() => setShowChangePin(true)}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+            <KeyRound className="w-4 h-4" />
+          </button>
+          <button onClick={loadQueue}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+            <Bell className="w-4 h-4" />
+          </button>
         </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="font-semibold text-foreground">{userName}</h1>
-          <p className="text-xs text-muted-foreground">Pharmacist · ClinIQ</p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={() => setShowChangePin(true)}
-          className="gap-1.5 text-muted-foreground hover:text-foreground">
-          <KeyRound className="w-4 h-4" /> Change PIN
-        </Button>
-        <Button variant="ghost" size="sm" onClick={handleLogout}
-          className="gap-1.5 text-muted-foreground hover:text-foreground">
-          <LogOut className="w-4 h-4" /> Logout
-        </Button>
-      </header>
 
-      {/* Tab bar */}
-      <div className="border-b border-border bg-card px-6">
-        <div className="flex gap-0">
-          {[
-            { key:"queue",    label:"Today's Queue",    icon:Clock,        badge: pendingCount > 0 ? String(pendingCount) : undefined },
-            { key:"lookup",   label:"Patient Lookup",   icon:Search       },
-            { key:"walkin",   label:"Walk-in Sale",     icon:ShoppingCart },
-            { key:"medicines",label:"Medicines",        icon:Package      },
-          ].map(t => (
-            <button key={t.key} onClick={() => setTab(t.key as Tab)}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all relative ${
-                tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}>
-              <t.icon className="w-4 h-4" />
-              {t.label}
-              {t.badge && (
-                <span className="ml-1 bg-primary text-primary-foreground text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                  {t.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
+        {/* Content row */}
+        <div className="flex-1 flex min-h-0">
+          {/* Left scrollable */}
+          <div className="flex-1 overflow-y-auto px-8 py-8">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+              {/* Heading */}
+              <p className="text-[11px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-2">IN-HOUSE PHARMACY</p>
+              <h1 className="text-4xl lg:text-5xl font-serif text-gray-900 dark:text-white leading-tight mb-2">
+                Dispense &amp;{" "}
+                <em className="text-gray-400 dark:text-gray-600 italic font-serif">bill</em>
+                {" "}from the doctor's desk.
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+                Prescriptions arrive here the moment a doctor finalizes a consultation.
+              </p>
 
-      <div className="max-w-2xl mx-auto p-6">
-        <AnimatePresence mode="wait">
-
-          {/* ── Walk-in Sale Tab ── */}
-          {tab === "walkin" && (
-            <motion.div key="walkin" initial={{ opacity:0,y:6 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0 }}>
-              <WalkInTab medicines={medicines} />
-            </motion.div>
-          )}
-
-          {/* ── Queue Tab ── */}
-          {tab === "queue" && (
-            <motion.div key="queue" initial={{ opacity:0,y:6 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0 }} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">Today's Prescriptions</h2>
-                  <p className="text-sm text-muted-foreground">Prescriptions created in the last 24 hours</p>
-                </div>
-                <Button variant="outline" size="sm" onClick={loadQueue} className="rounded-xl gap-1.5">
-                  <RefreshCw className="w-3.5 h-3.5" /> Refresh
-                </Button>
-              </div>
-
-              {queueLoading ? (
-                <div className="space-y-3">
-                  {[1,2].map(i => <div key={i} className="h-20 bg-muted animate-pulse rounded-2xl"/>)}
-                </div>
-              ) : queue.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                  <p className="font-medium">No pending prescriptions</p>
-                  <p className="text-sm">All clear for now</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {queue.map(rx => (
-                    <RxCard key={rx._id} rx={rx} onCollect={loadQueue} />
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* ── Lookup Tab ── */}
-          {tab === "lookup" && (
-            <motion.div key="lookup" initial={{ opacity:0,y:6 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0 }} className="space-y-5">
-              <div>
-                <h2 className="text-xl font-bold text-foreground">Patient Lookup</h2>
-                <p className="text-sm text-muted-foreground">Enter 6-digit patient ID or 11-digit Rx code</p>
-              </div>
-
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="6-digit patient ID  or  20260506001 Rx code"
-                    value={lookupCode}
-                    onChange={e => setLookupCode(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleLookup()}
-                    className="pl-9 h-12 rounded-xl font-mono"
-                    maxLength={11}
-                  />
-                </div>
-                <Button onClick={handleLookup} disabled={lookupLoading} className="h-12 px-6 rounded-xl gap-2">
-                  {lookupLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  Search
-                </Button>
-              </div>
-
-              {lookupError && (
-                <div className="flex items-center gap-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-red-700 dark:text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 shrink-0" /> {lookupError}
-                </div>
-              )}
-
-              {/* Patient full history result */}
-              {lookupResult?.type === "patient" && (
-                <div className="space-y-4">
-                  {/* Patient info */}
-                  <div className="bg-card border border-border rounded-2xl p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <User className="w-6 h-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-foreground text-lg">{lookupResult.patient?.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {lookupResult.patient?.age}y · {lookupResult.patient?.gender} · {lookupResult.patient?.phone}
-                        </p>
-                        <p className="text-xs font-mono text-primary mt-0.5">
-                          Patient ID: {lookupResult.patient?.permanentCode}
-                        </p>
-                      </div>
+              {/* Stats */}
+              <div className="grid grid-cols-4 gap-4 mb-8">
+                {[
+                  { label: "PENDING PRESCRIPTIONS", value: pendingCount,   sub: "awaiting dispense",   icon: Archive      },
+                  { label: "COMPLETED TODAY",        value: completedCount, sub: `${completedCount} total`, icon: CheckCircle2 },
+                  { label: "REVENUE TODAY",          value: `₹${revenueToday}`, sub: "collected",      icon: IndianRupee  },
+                  { label: "TICKETS",                value: queue.length,   sub: "prescriptions today", icon: Receipt      },
+                ].map(s => (
+                  <div key={s.label} className="bg-white dark:bg-[#0d0d1a] border border-gray-200 dark:border-white/5 rounded-2xl p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 leading-tight">{s.label}</p>
+                      <s.icon className="w-4 h-4 text-gray-300 dark:text-gray-700 shrink-0" strokeWidth={1.5} />
                     </div>
+                    <p className="text-4xl font-serif text-gray-900 dark:text-white mb-1">{s.value}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-600">{s.sub}</p>
                   </div>
-
-                  {/* Prescription history */}
-                  <div>
-                    <p className="text-sm font-semibold text-muted-foreground mb-3">
-                      Prescription History ({lookupResult.prescriptions?.length || 0})
-                    </p>
-                    {(!lookupResult.prescriptions || lookupResult.prescriptions.length === 0) ? (
-                      <p className="text-sm text-muted-foreground text-center py-8">No prescriptions found</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {lookupResult.prescriptions.map((rx: any) => (
-                          <RxCard key={rx._id} rx={rx} onCollect={async () => {
-                            const r = await apiPharmacyLookup(lookupCode.trim());
-                            setLookupResult({ type:"patient", ...r });
-                          }} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Single Rx lookup result */}
-              {lookupResult?.type === "rx" && lookupResult.prescription && (
-                <div className="space-y-3">
-                  <p className="text-sm font-semibold text-muted-foreground">Prescription found</p>
-                  <RxCard rx={lookupResult.prescription} onCollect={async () => {
-                    const r = await apiPharmacyLookupRx(lookupCode.trim());
-                    setLookupResult({ type:"rx", prescription: r.prescription });
-                  }} />
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* ── Medicines Tab ── */}
-          {tab === "medicines" && (
-            <motion.div key="medicines" initial={{ opacity:0,y:6 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0 }} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">Medicines</h2>
-                  <p className="text-sm text-muted-foreground">{medicines.length} medicines in database</p>
-                </div>
-                <Button size="sm" onClick={() => setShowAddMed(!showAddMed)} className="rounded-xl gap-1.5">
-                  <Plus className="w-3.5 h-3.5" /> Add Medicine
-                </Button>
-              </div>
-
-              <AnimatePresence>
-                {showAddMed && (
-                  <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:"auto" }} exit={{ opacity:0, height:0 }}
-                    className="overflow-hidden">
-                    <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
-                      <h3 className="text-sm font-semibold text-foreground">Add New Medicine</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input placeholder="Name *" value={newMed.name} onChange={e => setNewMed(p => ({...p, name:e.target.value}))} className="h-10 rounded-xl" />
-                        <Input placeholder="Category" value={newMed.category} onChange={e => setNewMed(p => ({...p, category:e.target.value}))} className="h-10 rounded-xl" />
-                        <Input placeholder="Manufacturer" value={newMed.manufacturer} onChange={e => setNewMed(p => ({...p, manufacturer:e.target.value}))} className="h-10 rounded-xl" />
-                        <Input placeholder="Unit (tab, ml, mg...)" value={newMed.unit} onChange={e => setNewMed(p => ({...p, unit:e.target.value}))} className="h-10 rounded-xl" />
-                      </div>
-                      {medError && <p className="text-xs text-destructive">{medError}</p>}
-                      <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setShowAddMed(false)} className="flex-1 h-9 rounded-xl">Cancel</Button>
-                        <Button onClick={handleAddMedicine} disabled={addingMed} className="flex-1 h-9 rounded-xl gap-1.5">
-                          {addingMed ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                          Add
-                        </Button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Search medicines..." value={medSearch} onChange={e => setMedSearch(e.target.value)} className="pl-9 h-10 rounded-xl" />
-              </div>
-
-              <div className="bg-card border border-border rounded-2xl divide-y divide-border overflow-hidden">
-                {filteredMeds.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-10">No medicines found</p>
-                ) : filteredMeds.map((m, i) => (
-                  <motion.div key={m._id} initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay: i*0.02 }}
-                    className="flex items-center gap-3 px-4 py-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Pill className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">{m.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {[m.category, m.manufacturer, m.unit].filter(Boolean).join(" · ")}
-                      </p>
-                    </div>
-                    <button onClick={() => handleDeleteMedicine(m._id)}
-                      className="w-7 h-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </motion.div>
                 ))}
               </div>
-            </motion.div>
-          )}
 
-        </AnimatePresence>
+              {/* Queue */}
+              <div className="bg-white dark:bg-[#0d0d1a] border border-gray-200 dark:border-white/5 rounded-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/5">
+                  <h2 className="text-2xl font-serif text-gray-900 dark:text-white">Queue</h2>
+                  <span className="text-xs text-gray-400 dark:text-gray-600">{displayQueue.length} total</span>
+                </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                  </div>
+                ) : displayQueue.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-700" strokeWidth={1.5} />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {search ? "No prescriptions match your search." : "No prescriptions yet today."}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    {displayQueue.map((rx, i) => {
+                      const isSelected = selected?._id === rx._id;
+                      const isPending  = !rx.collectedByPharmacy;
+                      const medCount   = rx.medicines?.length || 0;
+                      const treatments = rx.treatments?.length || 0;
+                      const docName    = rx.doctor?.name || rx.doctorName || "—";
+                      const dept       = rx.doctor?.specialization || rx.department || "General Medicine";
+                      const rxCode     = rx.rxCode || `PRX-${String(rx._id || "").slice(-4).toUpperCase().padStart(4,"0")}`;
+                      const ptCode     = rx.patient?.permanentCode || `PT-${String(rx.patient?._id || rx.patientId || "").slice(-4).toUpperCase().padStart(4,"0")}`;
+
+                      return (
+                        <motion.button key={rx._id} onClick={() => setSelected(isSelected ? null : rx)}
+                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
+                          className={`w-full text-left px-6 py-4 transition-all ${i > 0 ? "border-t border-gray-100 dark:border-white/5" : ""} ${
+                            isSelected
+                              ? "bg-blue-50 dark:bg-blue-500/5 border-l-2 border-l-blue-400 dark:border-l-blue-500"
+                              : "hover:bg-gray-50 dark:hover:bg-white/5"
+                          }`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">
+                                {rx.patient?.name || "Unknown"}
+                                {rx.patient?.age && <span className="font-normal text-gray-400 dark:text-gray-600"> · {rx.patient.age}M</span>}
+                              </p>
+                              <p className="text-xs text-gray-400 dark:text-gray-600">
+                                {rxCode} · {ptCode} · Dr. {docName} ({dept})
+                              </p>
+                              <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">
+                                {rx.createdAt ? fmtTime(rx.createdAt) : "—"}
+                                {medCount > 0 && ` · ${medCount} med${medCount > 1 ? "s" : ""}`}
+                                {treatments > 0 && ` · ${treatments} treatment${treatments > 1 ? "s" : ""}`}
+                              </p>
+                            </div>
+                            <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-lg ${
+                              isPending
+                                ? "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                : "bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-500"
+                            }`}>
+                              {isPending ? "Pending" : "Completed"}
+                            </span>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Right detail panel */}
+          <AnimatePresence>
+            {selected && (
+              <motion.div key={selected._id}
+                initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 24 }}
+                transition={{ duration: 0.25 }}
+                className="shrink-0 h-full">
+                <DetailPanel rx={selected} onClose={() => setSelected(null)} onCollect={() => { loadQueue(); setSelected(null); }} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-    <ChangePinModal open={showChangePin} onClose={() => setShowChangePin(false)} />
+
+      {/* Modals */}
+      <AnimatePresence>
+        {showWalkin && <WalkInModal medicines={medicines} onClose={() => setShowWalkin(false)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showMeds && <MedicinesModal medicines={medicines} onClose={() => setShowMeds(false)} onRefresh={loadMedicines} />}
+      </AnimatePresence>
+      <ChangePinModal open={showChangePin} onClose={() => setShowChangePin(false)} />
     </div>
   );
 };
