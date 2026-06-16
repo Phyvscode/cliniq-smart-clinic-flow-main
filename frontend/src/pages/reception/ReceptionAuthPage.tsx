@@ -1,32 +1,31 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { UserCheck, ChevronDown, User , ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronDown, X, Lock, UserCheck } from "lucide-react";
 import { useClinic } from "@/context/ClinicContext";
 import ForgotPinModal from "@/components/ForgotPinModal";
 
 const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:5000/api";
 
 interface StaffMember {
-  id: string;
-  name: string;
+  id:          string;
+  name:        string;
   department?: string;
-  photoUrl?: string | null;
+  photoUrl?:   string | null;
 }
 
 const ReceptionAuthPage = () => {
   const navigate = useNavigate();
   const { refreshPatients, refreshQueue } = useClinic();
 
-  const [staff, setStaff]             = useState<StaffMember[]>([]);
-  const [selectedId, setSelectedId]   = useState("");
+  const [staff,        setStaff]        = useState<StaffMember[]>([]);
+  const [selectedId,   setSelectedId]   = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [pin, setPin]                 = useState(["", "", "", "", "", ""]);
-  const [error, setError]             = useState("");
-  const [loading, setLoading]         = useState(false);
-  const [loadingList, setLoadingList] = useState(true);
-  const [showForgot, setShowForgot]   = useState(false);
+  const [pin,          setPin]          = useState(["", "", "", "", "", ""]);
+  const [error,        setError]        = useState("");
+  const [loading,      setLoading]      = useState(false);
+  const [loadingList,  setLoadingList]  = useState(true);
+  const [showForgot,   setShowForgot]   = useState(false);
 
   useEffect(() => {
     fetch(`${BASE_URL}/auth/staff-list?role=reception`)
@@ -43,7 +42,7 @@ const ReceptionAuthPage = () => {
     setDropdownOpen(false);
     setError("");
     setPin(["", "", "", "", "", ""]);
-    document.getElementById("rpin-0")?.focus();
+    setTimeout(() => document.getElementById("rpin-0")?.focus(), 50);
   };
 
   const handlePinChange = (index: number, value: string) => {
@@ -77,16 +76,17 @@ const ReceptionAuthPage = () => {
     setError(""); setLoading(true);
     try {
       const res  = await fetch(`${BASE_URL}/auth/pin-login`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: selectedId, pin: pinCode }),
+        body:    JSON.stringify({ userId: selectedId, pin: pinCode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Login failed");
+
       localStorage.setItem("cliniq_token", data.token);
-      localStorage.setItem("cliniq_user", JSON.stringify(data.user));
+      localStorage.setItem("cliniq_user",  JSON.stringify(data.user));
+
       navigate("/reception/dashboard");
-      // Refresh context in background — non-blocking
       Promise.all([
         refreshPatients().catch(() => {}),
         refreshQueue().catch(() => {}),
@@ -99,128 +99,144 @@ const ReceptionAuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6 relative">
-      <button onClick={() => navigate("/")} className="absolute top-4 right-4 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted">
-        <ArrowLeft className="w-4 h-4" /> Back
-      </button>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }} className="w-full max-w-sm">
+    <div className="min-h-screen bg-[#f0f0f8] dark:bg-[#0a0a0f] flex items-center justify-center p-6">
+      {/* Logo top-left */}
+      <div className="absolute top-5 left-8 flex items-center gap-2.5">
+        <div className="w-9 h-9 rounded-full bg-gray-900 dark:bg-white flex items-center justify-center">
+          <span className="text-white dark:text-gray-900 text-sm font-bold">C</span>
+        </div>
+        <span className="font-semibold text-gray-900 dark:text-white text-sm">ClinIQ</span>
+        <span className="text-xs text-gray-400 font-light">os</span>
+      </div>
 
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
-            <UserCheck className="w-8 h-8 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Reception Login</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Select your name and enter your PIN</p>
+      <motion.div initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200/60 dark:border-gray-800 w-full max-w-sm p-8 relative">
+
+        {/* Close */}
+        <button onClick={() => navigate("/")}
+          className="absolute top-5 right-5 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Header */}
+        <div className="mb-7">
+          <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-2">RECEPTION SIGN-IN</p>
+          <h1 className="text-3xl font-serif text-gray-900 dark:text-white">Welcome back</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 mb-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
 
-          {/* Custom dropdown with photos */}
+          {/* Profile dropdown */}
           <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
-              Select Your Name
-            </label>
+            <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-2">PROFILE</p>
             <div className="relative">
-              <button
-                type="button"
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="w-full h-14 rounded-xl border border-border bg-card text-foreground px-3 pr-10 text-sm flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <div className="w-8 h-8 rounded-lg overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
+              <button type="button" onClick={() => setDropdownOpen(!dropdownOpen)}
+                className={`w-full h-12 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 pr-10 flex items-center gap-3 focus:outline-none transition-all ${
+                  dropdownOpen
+                    ? "border-gray-900 dark:border-gray-400 ring-1 ring-gray-900/10 dark:ring-gray-400/10"
+                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                }`}>
+                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0 overflow-hidden">
                   {selected?.photoUrl
                     ? <img src={selected.photoUrl} alt={selected.name} className="w-full h-full object-cover" />
-                    : <User className="w-4 h-4 text-primary" />}
+                    : <UserCheck className="w-4 h-4 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />}
                 </div>
-                <span className={`flex-1 text-left truncate ${!selected ? "text-muted-foreground" : ""}`}>
-                  {loadingList ? "Loading..." : selected
-                    ? `${selected.name}${selected.department ? ` — ${selected.department}` : ""}`
-                    : "Select your name..."}
-                </span>
-                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform shrink-0 ${dropdownOpen ? "rotate-180" : ""}`} />
+                <div className="flex-1 text-left">
+                  {loadingList
+                    ? <span className="text-sm text-gray-400">Loading…</span>
+                    : selected
+                      ? <>
+                          <p className="text-sm font-medium leading-tight">{selected.name}</p>
+                          {selected.department && <p className="text-xs text-gray-400">{selected.department}</p>}
+                        </>
+                      : <span className="text-sm text-gray-400">Select your profile</span>
+                  }
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${dropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               <AnimatePresence>
                 {dropdownOpen && (
-                  <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                    className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
-                    {staff.length === 0 ? (
-                      <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                        No reception staff added yet. Ask admin to add you.
-                      </div>
-                    ) : (
-                      staff.map(s => (
+                  <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
+                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden max-h-64 overflow-y-auto">
+                    {staff.length === 0
+                      ? <div className="px-4 py-6 text-center text-sm text-gray-400">No reception staff added. Ask admin to add you.</div>
+                      : staff.map(s => (
                         <button key={s.id} type="button" onClick={() => handleSelect(s.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-3 hover:bg-muted transition-colors text-left ${
-                            selectedId === s.id ? "bg-primary/5" : ""
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left ${
+                            selectedId === s.id ? "bg-gray-50 dark:bg-gray-700" : ""
                           }`}>
-                          <div className="w-10 h-10 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0 overflow-hidden">
                             {s.photoUrl
                               ? <img src={s.photoUrl} alt={s.name} className="w-full h-full object-cover" />
-                              : <User className="w-5 h-5 text-primary" />}
+                              : <UserCheck className="w-4 h-4 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{s.name}</p>
-                            {s.department && (
-                              <p className="text-xs text-muted-foreground truncate">{s.department}</p>
-                            )}
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{s.name}</p>
+                            {s.department && <p className="text-xs text-gray-400 truncate">{s.department}</p>}
                           </div>
-                          {selectedId === s.id && (
-                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          )}
                         </button>
                       ))
-                    )}
+                    }
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
           </div>
 
-          {/* PIN boxes */}
-          {selectedId && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 block">
-                Enter Your 6-Digit PIN
-              </label>
-              <div className="flex gap-2 justify-between" onPaste={handlePaste}>
-                {pin.map((digit, i) => (
-                  <input key={i} id={`rpin-${i}`} type="password" autoComplete="off" spellCheck={false} inputMode="numeric"
-                    maxLength={1} value={digit}
-                    onChange={e => handlePinChange(i, e.target.value)}
-                    onKeyDown={e => handleKeyDown(i, e)}
-                    className={`w-12 h-14 text-center text-xl font-bold rounded-xl border-2 bg-background text-foreground focus:outline-none transition-all ${
-                      digit ? "border-primary bg-primary/5" : "border-border focus:border-primary"
-                    }`}
-                  />
-                ))}
-              </div>
-            </motion.div>
+          {/* PIN */}
+          <AnimatePresence>
+            {selectedId && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-2">6-DIGIT PIN</p>
+                <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3">
+                  <Lock className="w-4 h-4 text-gray-400 shrink-0" />
+                  <div className="flex gap-2 flex-1 justify-center" onPaste={handlePaste}>
+                    {pin.map((digit, i) => (
+                      <input key={i} id={`rpin-${i}`} type="password" autoComplete="off"
+                        inputMode="numeric" maxLength={1} value={digit}
+                        onChange={e => handlePinChange(i, e.target.value)}
+                        onKeyDown={e => handleKeyDown(i, e)}
+                        className={`w-8 h-8 text-center text-lg font-bold rounded-lg border-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none transition-all ${
+                          digit ? "border-gray-900 dark:border-gray-300" : "border-gray-200 dark:border-gray-700 focus:border-gray-400 dark:focus:border-gray-500"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {error && (
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="text-sm text-red-500 text-center">{error}</motion.p>
           )}
 
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
-
-          <Button type="submit" disabled={loading || !selectedId || pin.join("").length < 6}
-            className="w-full h-12 text-base font-medium rounded-xl" size="lg">
-            {loading ? "Signing in..." : "Sign In"}
-          </Button>
+          {/* Buttons */}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={() => navigate("/")}
+              className="flex-1 h-11 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              Cancel
+            </button>
+            <button type="submit"
+              disabled={loading || !selectedId || pin.join("").length < 6}
+              className="flex-1 h-11 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </div>
         </form>
 
-        <div className="text-center">
-          <button onClick={() => setShowForgot(true)} className="text-sm text-primary hover:underline font-medium">
+        <div className="text-center mt-4">
+          <button onClick={() => setShowForgot(true)} className="text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
             Forgot your PIN?
           </button>
         </div>
       </motion.div>
 
-      {dropdownOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-      )}
-
+      {dropdownOpen && <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />}
       <ForgotPinModal open={showForgot} onClose={() => setShowForgot(false)} />
     </div>
   );
