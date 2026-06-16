@@ -17,14 +17,33 @@ const DoctorDashboard = () => {
   const [search,         setSearch]        = useState("");
   const [showChangePin,  setShowChangePin] = useState(false);
 
-  const storedUser = localStorage.getItem("cliniq_user");
-  const doctorName = storedUser ? JSON.parse(storedUser).name : "Doctor";
-  const doctorSpec = storedUser ? (JSON.parse(storedUser).specialization || "General Medicine") : "";
+  const [storedUserRaw, setStoredUserRaw] = useState(localStorage.getItem("cliniq_user"));
+  const parsedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
+  const doctorName = parsedUser?.name || "Doctor";
+  const doctorSpec = parsedUser?.specialization || parsedUser?.department || "";
 
   useEffect(() => {
     refreshQueue();
     refreshPatients();
     const interval = setInterval(() => { refreshQueue(); refreshPatients(); }, 5000);
+
+    // Hydrate specialization for sessions created before the backend fix
+    const token = localStorage.getItem("cliniq_token");
+    if (token && !parsedUser?.specialization) {
+      fetch(`${(import.meta.env.VITE_API_URL as string) || "http://localhost:5000/api"}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.user?.specialization) {
+            const updated = { ...parsedUser, ...d.user };
+            localStorage.setItem("cliniq_user", JSON.stringify(updated));
+            setStoredUserRaw(JSON.stringify(updated));
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => clearInterval(interval);
   }, []);
 

@@ -54,7 +54,18 @@ export const pinLogin = asyncHandler(async (req: Request, res: Response) => {
   const isMatch = await user.comparePin(String(pin));
   if (!isMatch) { res.status(401).json({ message: "Incorrect PIN" }); return; }
   const token = generateToken(user._id as any);
-  res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+  const staffProfile = await Staff.findOne({ user: user._id }).select("specialization department").lean() as any;
+  res.json({
+    token,
+    user: {
+      id:             user._id,
+      name:           user.name,
+      email:          user.email,
+      role:           user.role,
+      specialization: staffProfile?.specialization || "",
+      department:     staffProfile?.department     || "",
+    },
+  });
 });
 
 // GET /api/auth/staff-list?role=doctor|reception  (public — for dropdown)
@@ -86,7 +97,17 @@ export const getStaffList = asyncHandler(async (req: Request, res: Response) => 
 // GET /api/auth/me
 export const getMe = asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user;
-  res.json({ user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+  const staffProfile = await Staff.findOne({ user: user._id }).select("specialization department").lean() as any;
+  res.json({
+    user: {
+      id:             user._id,
+      name:           user.name,
+      email:          user.email,
+      role:           user.role,
+      specialization: staffProfile?.specialization || "",
+      department:     staffProfile?.department     || "",
+    },
+  });
 });
 
 // PATCH /api/auth/change-pin  (doctor / reception)
