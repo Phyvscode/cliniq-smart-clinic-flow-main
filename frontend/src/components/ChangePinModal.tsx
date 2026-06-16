@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, KeyRound, RefreshCw, Eye, EyeOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, X, Lock, RefreshCw, Eye, EyeOff } from "lucide-react";
 
 const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:5000/api";
 const getToken = () => localStorage.getItem("cliniq_token");
@@ -9,19 +8,20 @@ const getToken = () => localStorage.getItem("cliniq_token");
 interface Props { open: boolean; onClose: () => void; }
 
 const ChangePinModal = ({ open, onClose }: Props) => {
-  const [currentPin, setCurrentPin]   = useState(["", "", "", "", "", ""]);
-  const [newPin, setNewPin]           = useState(["", "", "", "", "", ""]);
-  const [confirmPin, setConfirmPin]   = useState(["", "", "", "", "", ""]);
+  const [currentPin, setCurrentPin] = useState(["", "", "", "", "", ""]);
+  const [newPin,     setNewPin]     = useState(["", "", "", "", "", ""]);
+  const [confirmPin, setConfirmPin] = useState(["", "", "", "", "", ""]);
   const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew]         = useState(false);
+  const [showNew,     setShowNew]     = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState("");
-  const [success, setSuccess]         = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
+  const [success,  setSuccess]  = useState(false);
 
   const reset = () => {
     setCurrentPin(["","","","","",""]); setNewPin(["","","","","",""]);
     setConfirmPin(["","","","","",""]); setError(""); setSuccess(false);
+    setShowCurrent(false); setShowNew(false); setShowConfirm(false);
   };
   const handleClose = () => { reset(); onClose(); };
 
@@ -70,24 +70,27 @@ const ChangePinModal = ({ open, onClose }: Props) => {
   }) => (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>
-        <button type="button" onClick={() => setShow(!show)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+        <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600">{label}</p>
+        <button type="button" onClick={() => setShow(!show)}
+          className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
           {show ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
           {show ? "Hide" : "Show"}
         </button>
       </div>
-      <div className="flex gap-2 justify-between">
-        {arr.map((digit, i) => (
-          <input key={i} id={`${prefix}-${i}`}
-            type={show ? "text" : "password"} inputMode="numeric" maxLength={1} value={digit}
-            onChange={e => handleChange(arr, setArr, i, e.target.value, prefix)}
-            onKeyDown={e => handleKey(arr, i, e, prefix)}
-            className={`w-12 h-13 text-center text-xl font-bold rounded-xl border-2 bg-background text-foreground focus:outline-none transition-all ${
-              digit ? "border-primary bg-primary/5" : "border-border focus:border-primary"
-            }`}
-            style={{ height: "52px" }}
-          />
-        ))}
+      <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3">
+        <Lock className="w-4 h-4 text-gray-400 shrink-0" />
+        <div className="flex gap-2 flex-1 justify-center">
+          {arr.map((digit, i) => (
+            <input key={i} id={`${prefix}-${i}`}
+              type={show ? "text" : "password"} inputMode="numeric" maxLength={1} value={digit}
+              onChange={e => handleChange(arr, setArr, i, e.target.value, prefix)}
+              onKeyDown={e => handleKey(arr, i, e, prefix)}
+              className={`w-8 h-8 text-center text-lg font-bold rounded-lg border-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none transition-all ${
+                digit ? "border-gray-900 dark:border-gray-300" : "border-gray-200 dark:border-gray-700 focus:border-gray-400 dark:focus:border-gray-500"
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -99,18 +102,20 @@ const ChangePinModal = ({ open, onClose }: Props) => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={handleClose} className="fixed inset-0 bg-black/50 z-40" />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ duration: 0.2 }}
+            initial={{ opacity: 0, scale: 0.97, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 10 }} transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
 
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-primary" />
-                  <h2 className="font-semibold text-foreground">Change PIN</h2>
+            <div className="bg-white dark:bg-gray-900 border border-gray-200/60 dark:border-gray-800 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-800">
+                <div>
+                  <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-1">SECURITY</p>
+                  <h2 className="text-xl font-serif text-gray-900 dark:text-white">Change PIN</h2>
                 </div>
                 <button onClick={handleClose}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted">
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -120,20 +125,20 @@ const ChangePinModal = ({ open, onClose }: Props) => {
                   {success ? (
                     <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                       className="flex flex-col items-center py-6 text-center">
-                      <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
-                        <Check className="w-8 h-8 text-emerald-500" />
+                      <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-800 flex items-center justify-center mb-4">
+                        <Check className="w-7 h-7 text-emerald-500" />
                       </div>
-                      <h3 className="font-semibold text-foreground mb-1">PIN Changed!</h3>
-                      <p className="text-sm text-muted-foreground">Your PIN has been updated successfully.</p>
+                      <h3 className="font-serif text-lg text-gray-900 dark:text-white mb-1">PIN updated</h3>
+                      <p className="text-sm text-gray-400">Your PIN has been changed successfully.</p>
                     </motion.div>
                   ) : (
                     <motion.div key="form" className="space-y-4">
-                      <PinRow arr={currentPin} setArr={setCurrentPin} prefix="cp" show={showCurrent} setShow={setShowCurrent} label="Current PIN" />
-                      <PinRow arr={newPin}     setArr={setNewPin}     prefix="np" show={showNew}     setShow={setShowNew}     label="New PIN"     />
-                      <PinRow arr={confirmPin} setArr={setConfirmPin} prefix="cfp" show={showConfirm} setShow={setShowConfirm} label="Confirm New PIN" />
+                      <PinRow arr={currentPin} setArr={setCurrentPin} prefix="cp"  show={showCurrent} setShow={setShowCurrent} label="CURRENT PIN"     />
+                      <PinRow arr={newPin}     setArr={setNewPin}     prefix="np"  show={showNew}     setShow={setShowNew}     label="NEW PIN"         />
+                      <PinRow arr={confirmPin} setArr={setConfirmPin} prefix="cfp" show={showConfirm} setShow={setShowConfirm} label="CONFIRM NEW PIN" />
 
                       {confirmPin.join("").length === 6 && !pinsMatch && (
-                        <p className="text-xs text-destructive">PINs do not match</p>
+                        <p className="text-xs text-red-500">PINs do not match</p>
                       )}
                       {pinsMatch && (
                         <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -141,15 +146,21 @@ const ChangePinModal = ({ open, onClose }: Props) => {
                         </p>
                       )}
 
-                      {error && <p className="text-sm text-destructive">{error}</p>}
+                      {error && (
+                        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                          className="text-sm text-red-500">{error}</motion.p>
+                      )}
 
-                      <div className="flex gap-2 pt-1">
-                        <Button variant="outline" onClick={handleClose} className="flex-1 h-11 rounded-xl">Cancel</Button>
-                        <Button onClick={handleSubmit}
+                      <div className="flex gap-3 pt-1">
+                        <button onClick={handleClose}
+                          className="flex-1 h-11 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                          Cancel
+                        </button>
+                        <button onClick={handleSubmit}
                           disabled={loading || currentPin.join("").length < 6 || !pinsMatch}
-                          className="flex-1 h-11 rounded-xl gap-2">
-                          {loading ? <><RefreshCw className="w-4 h-4 animate-spin" /> Saving...</> : "Change PIN"}
-                        </Button>
+                          className="flex-1 h-11 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                          {loading ? <><RefreshCw className="w-4 h-4 animate-spin" /> Saving…</> : "Change PIN"}
+                        </button>
                       </div>
                     </motion.div>
                   )}
