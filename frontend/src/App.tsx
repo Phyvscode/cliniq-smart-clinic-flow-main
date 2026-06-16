@@ -11,6 +11,7 @@ import DoctorConsultation from "@/pages/doctor/DoctorConsultation";
 import ReceptionAuthPage     from "@/pages/reception/ReceptionAuthPage";
 import ReceptionDashboard    from "@/pages/reception/ReceptionDashboard";
 import ReceptionAppointments from "@/pages/reception/ReceptionAppointments";
+import ReceptionTests        from "@/pages/reception/ReceptionTests";
 import ReceptionFollowUps    from "@/pages/reception/ReceptionFollowUps";
 import ReceptionBeds         from "@/pages/reception/ReceptionBeds";
 import PharmacyAuthPage   from "@/pages/pharmacy/PharmacyAuthPage";
@@ -39,6 +40,7 @@ const App = () => (
         <Route path="/reception"           element={<ReceptionAuthPage />} />
         <Route path="/reception/dashboard"     element={<RequireAuth role="reception">  <ReceptionDashboard />    </RequireAuth>} />
         <Route path="/reception/appointments"  element={<RequireAuth role="reception">  <ReceptionAppointments /></RequireAuth>} />
+        <Route path="/reception/tests"         element={<RequireAuth role="reception">  <ReceptionTests />        </RequireAuth>} />
         <Route path="/reception/followups"     element={<RequireAuth role="reception">  <ReceptionFollowUps />    </RequireAuth>} />
         <Route path="/reception/beds"          element={<RequireAuth role="reception">  <ReceptionBeds />         </RequireAuth>} />
         <Route path="/pharmacy"            element={<Navigate to="/pharmacy/login" replace />} />
