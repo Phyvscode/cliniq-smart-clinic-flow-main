@@ -80,6 +80,9 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         queueNumber: q.queueNumber,
         status:      q.status,
         addedAt:     q.createdAt || q.addedAt || new Date().toISOString(),
+        department:  q.department,
+        doctorId:    q.doctor?._id ? String(q.doctor._id) : (q.doctor ? String(q.doctor) : undefined),
+        doctorName:  q.doctor?.name,
         _patient:    q.patient && typeof q.patient === "object" ? normalise(q.patient) : null,
       }));
       setQueue(entries);
