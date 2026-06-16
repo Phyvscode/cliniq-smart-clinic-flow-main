@@ -148,7 +148,7 @@ const ReceptionAuthPage = () => {
                     : selected
                       ? <>
                           <p className="text-sm font-medium leading-tight">{selected.name}</p>
-                          {selected.department && <p className="text-xs text-gray-400">{selected.department}</p>}
+                          <p className="text-xs text-gray-400">Receptionist</p>
                         </>
                       : <span className="text-sm text-gray-400">Select your profile</span>
                   }
@@ -175,7 +175,7 @@ const ReceptionAuthPage = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{s.name}</p>
-                            {s.department && <p className="text-xs text-gray-400 truncate">{s.department}</p>}
+                            <p className="text-xs text-gray-400 truncate">Receptionist</p>
                           </div>
                         </button>
                       ))
