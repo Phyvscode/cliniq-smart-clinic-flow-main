@@ -132,58 +132,71 @@ const VitalsSection = ({ vitals, onChange }: { vitals: Vitals; onChange: (key: k
     Number(bmi) < 25   ? "text-emerald-500" :
     Number(bmi) < 30   ? "text-amber-500"   : "text-red-500";
 
-  const Field = ({ label, k, unit, placeholder }: { label: string; k: keyof Vitals; unit?: string; placeholder?: string }) => (
-    <div className="flex-1 min-w-[110px]">
-      <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
-      <div className="relative">
-        <input type="number" placeholder={placeholder || "—"}
-          value={vitals[k] ?? ""}
-          onChange={e => onChange(k, e.target.value ? Number(e.target.value) : undefined)}
-          className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-        {unit && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">{unit}</span>}
+  const Field = ({ label, k, unit }: { label: string; k: keyof Vitals; unit?: string }) => {
+    const isSet = vitals[k] != null;
+    return (
+      <div className="flex-1 min-w-[110px]">
+        <label className={`text-xs mb-1 block font-medium ${isSet ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-600"}`}>{label}</label>
+        <div className="relative">
+          <input type="number" placeholder="—"
+            value={vitals[k] ?? ""}
+            onChange={e => onChange(k, e.target.value ? Number(e.target.value) : undefined)}
+            className={`w-full h-10 rounded-xl border px-3 text-sm focus:outline-none transition-all ${
+              isSet
+                ? "border-gray-400 dark:border-gray-500 bg-white dark:bg-white/10 text-gray-900 dark:text-white font-medium"
+                : "border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 text-gray-400"
+            } ${unit ? "pr-9" : ""}`} />
+          {unit && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">{unit}</span>}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  const bpSet = vitals.bpSys != null || vitals.bpDia != null;
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-4">
+    <div className="bg-white dark:bg-[#0d0d1a] border border-gray-100 dark:border-white/8 rounded-2xl p-4">
       <div className="flex items-center gap-2 mb-4">
-        <Activity className="w-4 h-4 text-primary" />
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Vitals</p>
-        <span className="text-xs text-muted-foreground ml-auto">(optional)</span>
+        <Activity className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+        <p className="text-xs font-bold text-gray-400 dark:text-gray-600 uppercase tracking-widest">Vitals</p>
+        <span className="text-xs text-gray-400 dark:text-gray-600 ml-auto">All default to none</span>
       </div>
       <div className="space-y-3">
         {/* BP + Pulse + Temp */}
         <div className="flex flex-wrap gap-3">
           <div className="flex-1 min-w-[180px]">
-            <label className="text-xs text-muted-foreground mb-1 block">Blood Pressure</label>
+            <label className={`text-xs mb-1 block font-medium ${bpSet ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-600"}`}>Blood Pressure</label>
             <div className="flex gap-1 items-center">
-              <input type="number" placeholder="120" value={vitals.bpSys ?? ""}
+              <input type="number" placeholder="—" value={vitals.bpSys ?? ""}
                 onChange={e => onChange("bpSys", e.target.value ? Number(e.target.value) : undefined)}
-                className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              <span className="text-muted-foreground text-sm shrink-0">/</span>
-              <input type="number" placeholder="80" value={vitals.bpDia ?? ""}
+                className={`w-full h-10 rounded-xl border px-3 text-sm focus:outline-none transition-all ${
+                  vitals.bpSys != null ? "border-gray-400 dark:border-gray-500 bg-white dark:bg-white/10 text-gray-900 dark:text-white font-medium" : "border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 text-gray-400"
+                }`} />
+              <span className="text-gray-400 text-sm shrink-0">/</span>
+              <input type="number" placeholder="—" value={vitals.bpDia ?? ""}
                 onChange={e => onChange("bpDia", e.target.value ? Number(e.target.value) : undefined)}
-                className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              <span className="text-xs text-muted-foreground shrink-0">mmHg</span>
+                className={`w-full h-10 rounded-xl border px-3 text-sm focus:outline-none transition-all ${
+                  vitals.bpDia != null ? "border-gray-400 dark:border-gray-500 bg-white dark:bg-white/10 text-gray-900 dark:text-white font-medium" : "border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 text-gray-400"
+                }`} />
+              <span className="text-xs text-gray-400 shrink-0">mmHg</span>
             </div>
           </div>
-          <Field label="Pulse" k="pulse" unit="bpm" placeholder="72" />
-          <Field label="Temperature" k="temp" unit="°F" placeholder="98.6" />
+          <Field label="Pulse" k="pulse" unit="bpm" />
+          <Field label="Temperature" k="temp" unit="°F" />
         </div>
         {/* SpO2 + RR */}
         <div className="flex flex-wrap gap-3">
-          <Field label="SpO2" k="spo2" unit="%" placeholder="99" />
-          <Field label="Resp. Rate" k="rr" unit="/min" placeholder="18" />
+          <Field label="SpO2" k="spo2" unit="%" />
+          <Field label="Resp. Rate" k="rr" unit="/min" />
         </div>
         {/* Height + Weight + BMI */}
         <div className="flex flex-wrap gap-3">
-          <Field label="Height" k="height" unit="cm" placeholder="170" />
-          <Field label="Weight" k="weight" unit="kg" placeholder="70" />
+          <Field label="Height" k="height" unit="cm" />
+          <Field label="Weight" k="weight" unit="kg" />
           <div className="flex-1 min-w-[110px]">
-            <label className="text-xs text-muted-foreground mb-1 block">BMI (auto)</label>
-            <div className="h-10 rounded-xl border border-border bg-muted/40 px-3 flex items-center gap-2">
-              <span className={`text-sm font-semibold ${bmi ? "text-foreground" : "text-muted-foreground"}`}>
+            <label className={`text-xs mb-1 block font-medium ${bmi ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-600"}`}>BMI (auto)</label>
+            <div className={`h-10 rounded-xl border px-3 flex items-center gap-2 ${bmi ? "border-gray-400 dark:border-gray-500 bg-white dark:bg-white/10" : "border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5"}`}>
+              <span className={`text-sm font-semibold ${bmi ? "text-gray-900 dark:text-white" : "text-gray-400"}`}>
                 {bmi || "—"}
               </span>
               {bmiLabel && <span className={`text-xs font-medium ${bmiColor}`}>{bmiLabel}</span>}

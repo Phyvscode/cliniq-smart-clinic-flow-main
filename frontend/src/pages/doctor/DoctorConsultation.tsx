@@ -531,29 +531,39 @@ const DoctorConsultation = () => {
 
               {/* Vitals — always visible horizontal row */}
               <div className="bg-white dark:bg-[#0d0d1a] border border-gray-200 dark:border-white/5 rounded-2xl px-5 py-4 mb-7">
-                <SectionLabel>VITALS</SectionLabel>
+                <div className="flex items-center justify-between mb-3">
+                  <SectionLabel>VITALS</SectionLabel>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-600 font-medium tracking-wide">All fields default to none — enter only what was measured</span>
+                </div>
                 <div className="grid grid-cols-9 gap-2">
                   {[
-                    { label: "BP SYS",  k: "bpSys"  as keyof Vitals, ph: "120"  },
-                    { label: "BP DIA",  k: "bpDia"  as keyof Vitals, ph: "80"   },
-                    { label: "PULSE",   k: "pulse"  as keyof Vitals, ph: "72"   },
-                    { label: "TEMP °F", k: "temp"   as keyof Vitals, ph: "98.6" },
-                    { label: "SPO₂ %",  k: "spo2"   as keyof Vitals, ph: "99"   },
-                    { label: "RESP",    k: "rr"     as keyof Vitals, ph: "18"   },
-                    { label: "HT CM",   k: "height" as keyof Vitals, ph: "170"  },
-                    { label: "WT KG",   k: "weight" as keyof Vitals, ph: "70"   },
-                  ].map(f => (
-                    <div key={f.k}>
-                      <p className="text-[9px] font-semibold tracking-wider text-gray-400 dark:text-gray-600 mb-1.5">{f.label}</p>
-                      <input type="number" placeholder={f.ph} value={vitals[f.k] ?? ""}
-                        onChange={e => updateVital(f.k, e.target.value ? Number(e.target.value) : undefined)}
-                        className="w-full h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 px-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 text-center" />
-                    </div>
-                  ))}
+                    { label: "BP SYS",  k: "bpSys"  as keyof Vitals },
+                    { label: "BP DIA",  k: "bpDia"  as keyof Vitals },
+                    { label: "PULSE",   k: "pulse"  as keyof Vitals },
+                    { label: "TEMP °F", k: "temp"   as keyof Vitals },
+                    { label: "SPO₂ %",  k: "spo2"   as keyof Vitals },
+                    { label: "RESP",    k: "rr"     as keyof Vitals },
+                    { label: "HT CM",   k: "height" as keyof Vitals },
+                    { label: "WT KG",   k: "weight" as keyof Vitals },
+                  ].map(f => {
+                    const isSet = vitals[f.k] != null;
+                    return (
+                      <div key={f.k}>
+                        <p className={`text-[9px] font-semibold tracking-wider mb-1.5 ${isSet ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-600"}`}>{f.label}</p>
+                        <input type="number" placeholder="—" value={vitals[f.k] ?? ""}
+                          onChange={e => updateVital(f.k, e.target.value ? Number(e.target.value) : undefined)}
+                          className={`w-full h-9 rounded-lg border px-2 text-sm focus:outline-none focus:border-gray-400 text-center transition-all ${
+                            isSet
+                              ? "border-gray-400 dark:border-gray-500 bg-white dark:bg-white/10 text-gray-900 dark:text-white font-medium"
+                              : "border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-gray-600"
+                          }`} />
+                      </div>
+                    );
+                  })}
                   <div>
-                    <p className="text-[9px] font-semibold tracking-wider text-gray-400 dark:text-gray-600 mb-1.5">BMI</p>
-                    <div className="w-full h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 px-2 text-sm text-gray-400 dark:text-gray-600 flex items-center justify-center">
-                      {bmi || "auto"}
+                    <p className={`text-[9px] font-semibold tracking-wider mb-1.5 ${bmi ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-600"}`}>BMI</p>
+                    <div className={`w-full h-9 rounded-lg border px-2 text-sm flex items-center justify-center ${bmi ? "border-gray-400 dark:border-gray-500 bg-white dark:bg-white/10 text-gray-900 dark:text-white font-medium" : "border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-gray-600"}`}>
+                      {bmi || "—"}
                     </div>
                   </div>
                 </div>
