@@ -71,6 +71,7 @@ export const generateAndSend = asyncHandler(async (req: AuthRequest, res: Respon
     investigations:  (rx as any).investigations || [],
     diagnoses:       (rx as any).diagnoses || [],
     problems:        rx.problems || [],
+    vitals:          (rx as any).vitals || undefined,
     medicines:       rx.medicines.map((m: any) => ({
       name:        m.medicineName || m.name,
       morning:     m.morning,
@@ -178,6 +179,7 @@ export const downloadPdf = asyncHandler(async (req: AuthRequest, res: Response) 
     investigations: (rx as any).investigations || [],
     diagnoses:      (rx as any).diagnoses || [],
     problems:       rx.problems || [],
+    vitals:         (rx as any).vitals || undefined,
     medicines:      rx.medicines.map((m: any) => ({
       name:        m.medicineName || m.name,
       morning:     m.morning,

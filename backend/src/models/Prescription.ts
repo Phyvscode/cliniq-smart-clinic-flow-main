@@ -14,6 +14,18 @@ interface PrescriptionMedicineDoc {
   dosageUnit?:        string | null;
 }
 
+export interface IVitals {
+  bpSys?:  number;
+  bpDia?:  number;
+  pulse?:  number;
+  temp?:   number;
+  spo2?:   number;
+  rr?:     number;
+  height?: number;
+  weight?: number;
+  bmi?:    number;
+}
+
 export interface IPrescription extends Document {
   patient:        mongoose.Types.ObjectId;
   doctor:         mongoose.Types.ObjectId;
@@ -23,6 +35,7 @@ export interface IPrescription extends Document {
   investigations: string[];   // tests advised
   diagnoses:      string[];   // diagnosis
   medicines:      PrescriptionMedicineDoc[];
+  vitals?:        IVitals;
   notes?:         string;
   referral?:      { specialist: string; notes?: string } | null;
   labTests?:      { tests: string[]; notes?: string } | null;
@@ -57,6 +70,17 @@ const PrescriptionSchema = new Schema<IPrescription>(
     investigations: [{ type: String }],
     diagnoses:      [{ type: String }],
     medicines:      [PrescriptionMedSchema],
+    vitals: {
+      bpSys:  { type: Number, default: null },
+      bpDia:  { type: Number, default: null },
+      pulse:  { type: Number, default: null },
+      temp:   { type: Number, default: null },
+      spo2:   { type: Number, default: null },
+      rr:     { type: Number, default: null },
+      height: { type: Number, default: null },
+      weight: { type: Number, default: null },
+      bmi:    { type: Number, default: null },
+    },
     notes:          { type: String, default: "" },
     referral:       {
       specialist: { type: String },

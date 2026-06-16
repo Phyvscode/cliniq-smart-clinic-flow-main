@@ -10,7 +10,7 @@ import { todayString } from "../utils/generateToken";
 export const createPrescription = asyncHandler(async (req: AuthRequest, res: Response) => {
   const {
     patientId, problems, complaints, investigations, diagnoses,
-    medicines, notes, referral, labTests, queueEntryId, rxCode,
+    medicines, vitals, notes, referral, labTests, queueEntryId, rxCode,
   } = req.body;
 
   if (!patientId || !medicines || medicines.length === 0) {
@@ -56,6 +56,7 @@ export const createPrescription = asyncHandler(async (req: AuthRequest, res: Res
     investigations: allInvestigations,
     diagnoses:      allDiagnoses,
     medicines:      resolvedMedicines,
+    vitals:         vitals   || undefined,
     notes:          notes    || "",
     referral:       referral || null,
     labTests:       labTests || null,

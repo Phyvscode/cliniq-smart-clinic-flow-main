@@ -14,6 +14,18 @@ export interface PrescMedicine {
   instructions?:     string;
 }
 
+export interface PrescVitals {
+  bpSys?:  number | null;
+  bpDia?:  number | null;
+  pulse?:  number | null;
+  temp?:   number | null;
+  spo2?:   number | null;
+  rr?:     number | null;
+  height?: number | null;
+  weight?: number | null;
+  bmi?:    number | null;
+}
+
 export interface PrescData {
   doctorName:      string;
   specialization?: string;
@@ -32,6 +44,7 @@ export interface PrescData {
   investigations?: string[];
   diagnoses?:      string[];
   problems?:       string[];
+  vitals?:         PrescVitals;
   medicines:       PrescMedicine[];
   notes?:          string;
 }
@@ -100,6 +113,24 @@ export const buildPrescriptionHtml = (data: PrescData): string => {
         <span class="section-label">Diagnosis:</span>
         <span class="diagnosis-text">${data.diagnosis}</span>
        </div>`
+    : "";
+
+  // Vitals — only render cells for values that were actually assigned
+  const v = data.vitals;
+  const vitalCells: string[] = [];
+  if (v) {
+    if (v.bpSys  != null && v.bpDia != null) vitalCells.push(`<div class="vital-cell"><span class="vital-label">BP</span><span class="vital-val">${v.bpSys}/${v.bpDia} <span class="vital-unit">mmHg</span></span></div>`);
+    else if (v.bpSys != null)                 vitalCells.push(`<div class="vital-cell"><span class="vital-label">BP SYS</span><span class="vital-val">${v.bpSys} <span class="vital-unit">mmHg</span></span></div>`);
+    if (v.pulse  != null) vitalCells.push(`<div class="vital-cell"><span class="vital-label">Pulse</span><span class="vital-val">${v.pulse} <span class="vital-unit">bpm</span></span></div>`);
+    if (v.temp   != null) vitalCells.push(`<div class="vital-cell"><span class="vital-label">Temp</span><span class="vital-val">${v.temp} <span class="vital-unit">°F</span></span></div>`);
+    if (v.spo2   != null) vitalCells.push(`<div class="vital-cell"><span class="vital-label">SpO₂</span><span class="vital-val">${v.spo2} <span class="vital-unit">%</span></span></div>`);
+    if (v.rr     != null) vitalCells.push(`<div class="vital-cell"><span class="vital-label">Resp Rate</span><span class="vital-val">${v.rr} <span class="vital-unit">/min</span></span></div>`);
+    if (v.height != null) vitalCells.push(`<div class="vital-cell"><span class="vital-label">Height</span><span class="vital-val">${v.height} <span class="vital-unit">cm</span></span></div>`);
+    if (v.weight != null) vitalCells.push(`<div class="vital-cell"><span class="vital-label">Weight</span><span class="vital-val">${v.weight} <span class="vital-unit">kg</span></span></div>`);
+    if (v.bmi    != null) vitalCells.push(`<div class="vital-cell"><span class="vital-label">BMI</span><span class="vital-val">${v.bmi}</span></div>`);
+  }
+  const vitalsHtml = vitalCells.length
+    ? `<div class="vitals-bar">${vitalCells.join("")}</div>`
     : "";
 
   const notesHtml = data.notes
@@ -195,6 +226,29 @@ export const buildPrescriptionHtml = (data: PrescData): string => {
   .med-duration { color: #475569; white-space: nowrap; }
   .instr      { background: #fffbeb; color: #92400e; font-size: 10px; padding: 1px 6px; border-radius: 4px; }
 
+  /* ── Vitals bar ── */
+  .vitals-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+  }
+  .vital-cell {
+    display: flex;
+    flex-direction: column;
+    min-width: 70px;
+    padding: 0 10px;
+    border-right: 1px solid #d1fae5;
+  }
+  .vital-cell:last-child { border-right: none; }
+  .vital-label { font-size: 9px; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+  .vital-val   { font-size: 13px; font-weight: 700; color: #1e293b; margin-top: 1px; }
+  .vital-unit  { font-size: 9px; color: #64748b; font-weight: 400; }
+
   /* ── Notes ── */
   .notes-section {
     background: #f8faff;
@@ -255,6 +309,9 @@ ${data.rxCode ? `<div style="text-align:right;margin-bottom:10px;">
   <div class="info-cell"><label>Date</label><p>${data.date}</p></div>
   <div class="info-cell"><label>Ref No.</label><p>#RX-${Date.now().toString().slice(-6)}</p></div>
 </div>
+
+<!-- Vitals (only shown if any were recorded) -->
+${vitalsHtml}
 
 <!-- Chief Complaints -->
 ${problemsHtml}
