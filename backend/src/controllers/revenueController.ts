@@ -106,7 +106,7 @@ export const getTransactions = asyncHandler(async (req: AuthRequest, res: Respon
 
   const [payments, total] = await Promise.all([
     Payment.find(filter)
-      .populate("patient",     "name phone")
+      .populate("patient",     "name phone gender dateOfBirth permanentCode age")
       .populate("doctor",      "name")
       .populate("collectedBy", "name")
       .sort({ createdAt: -1 })
@@ -248,18 +248,31 @@ export const getRevenueByDepartment = asyncHandler(async (_req: AuthRequest, res
     (staffProfiles as any[]).map((s: any) => [String(s.user), String(s.department || s.specialization || "General")])
   );
 
-  const deptRevenue: Record<string, number> = {};
+  const deptStats: Record<string, { revenue: number; patientCount: number; doctorIds: Set<string> }> = {};
   for (const p of payments as any[]) {
-    const docId = p.doctor ? String(p.doctor?._id ?? p.doctor) : null;
-    const dept  = docId ? (deptMap.get(docId) ?? "Unassigned") : "Unassigned";
-    deptRevenue[dept] = (deptRevenue[dept] ?? 0) + (p.amount as number);
+    const docId   = p.doctor ? String(p.doctor?._id ?? p.doctor) : null;
+    const dept    = docId ? (deptMap.get(docId) ?? "Unassigned") : "Unassigned";
+    const patId   = p.patient ? String(p.patient?._id ?? p.patient) : null;
+    if (!deptStats[dept]) deptStats[dept] = { revenue: 0, patientCount: 0, doctorIds: new Set() };
+    deptStats[dept].revenue      += p.amount as number;
+    deptStats[dept].patientCount += 1;
+    if (docId) deptStats[dept].doctorIds.add(docId);
   }
 
-  const result = Object.entries(deptRevenue)
-    .map(([department, revenue]) => ({ department, revenue }))
+  const totalRevenue = Object.values(deptStats).reduce((s, d) => s + d.revenue, 0);
+
+  const result = Object.entries(deptStats)
+    .map(([department, s]) => ({
+      department,
+      revenue:      s.revenue,
+      patientCount: s.patientCount,
+      doctorCount:  s.doctorIds.size,
+      avgBill:      s.patientCount > 0 ? Math.round(s.revenue / s.patientCount) : 0,
+      revPct:       totalRevenue > 0 ? Math.round((s.revenue / totalRevenue) * 100) : 0,
+    }))
     .sort((a, b) => b.revenue - a.revenue);
 
-  res.json({ departments: result });
+  res.json({ departments: result, totalRevenue });
 });
 
 export const getDoctorPerformance = asyncHandler(async (_req: AuthRequest, res: Response) => {
