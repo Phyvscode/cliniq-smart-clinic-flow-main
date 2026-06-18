@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, X, Lock, Stethoscope } from "lucide-react";
@@ -26,6 +26,16 @@ const DoctorAuthPage = () => {
   const [loading,      setLoading]      = useState(false);
   const [loadingList,  setLoadingList]  = useState(true);
   const [showForgot,   setShowForgot]   = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
+        setDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     fetch(`${BASE_URL}/auth/staff-list?role=doctor`)
@@ -131,7 +141,7 @@ const DoctorAuthPage = () => {
           {/* Profile dropdown */}
           <div>
             <p className="text-[10px] font-semibold tracking-widest text-gray-400 dark:text-gray-600 mb-2">PROFILE</p>
-            <div className="relative">
+            <div className="relative" ref={dropdownRef}>
               <button type="button" onClick={() => setDropdownOpen(!dropdownOpen)}
                 className={`w-full h-12 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 pr-10 flex items-center gap-3 focus:outline-none transition-all ${
                   dropdownOpen
@@ -237,7 +247,6 @@ const DoctorAuthPage = () => {
         </div>
       </motion.div>
 
-      {dropdownOpen && <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />}
       <ForgotPinModal open={showForgot} onClose={() => setShowForgot(false)} />
     </div>
   );
