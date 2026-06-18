@@ -429,6 +429,15 @@ const DoctorConsultation = () => {
               }} className="w-full h-11 rounded-xl border-gray-200 dark:border-gray-700 gap-2">
                 <MessageCircle className="w-4 h-4" /> Send to Pharmacy
               </Button>
+              <Button variant="outline" onClick={async () => {
+                const qid = current?.queueEntry?.id;
+                if (qid) {
+                  try { await apiUpdateQueueStatus(qid, "done"); await refreshQueue(); } catch {}
+                }
+                navigate("/doctor/dashboard");
+              }} className="w-full h-11 rounded-xl border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 gap-2">
+                <Check className="w-4 h-4" /> Finish
+              </Button>
             </div>
             <Button variant="ghost" onClick={() => navigate("/doctor/dashboard")} className="w-full text-gray-500 dark:text-gray-400">
               Done — Back to Appointments
