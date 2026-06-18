@@ -228,7 +228,7 @@ const DoctorConsultation = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const patientId = searchParams.get("patientId");
-  const { patients, medicines: ctxMedicines, getCurrentPatient, refreshQueue, refreshMedicines } = useClinic();
+  const { patients, queue, medicines: ctxMedicines, getCurrentPatient, refreshQueue, refreshMedicines } = useClinic();
 
   const patient = patients.find(p => p.id === patientId)
     || (patients as any[]).find(p => p._patient?.id === patientId)?._patient;
@@ -341,7 +341,8 @@ const DoctorConsultation = () => {
     setSaving(true);
     try {
       const pat        = current?.patient || patient;
-      const queueEntry = current?.queueEntry;
+      const queueEntry = current?.queueEntry
+        || queue.find(q => q.patientId === (pat?.id || patientId) && q.status !== "done");
       const finalSpec  = referralSpec || referralCustom.trim();
       const res = await apiCreatePrescription({
         patientId: pat?.id || patientId,
