@@ -52,7 +52,7 @@ const apiCreatePayment = async (body: object) => {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DEPARTMENTS = [
   "General Medicine","Pediatrics","Gynecology","Orthopedics",
-  "Dermatology","ENT","Cardiology","Neurology","Ophthalmology","Dentistry",
+  "Dermatology","ENT","Cardiology","Ophthalmology","Psychiatry","Pulmonology",
 ];
 
 const calculateAge = (dob: string) => {

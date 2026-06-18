@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useClinic } from "@/context/ClinicContext";
 
 const GOV_ID_TYPES = ["Aadhaar", "Passport", "Driving License", "Voter ID"] as const;
-const DEPARTMENTS = ["General Medicine", "Cardiology", "Orthopedics", "Dermatology", "ENT", "Pediatrics", "Gynecology"] as const;
+const DEPARTMENTS = ["General Medicine", "Cardiology", "Orthopedics", "Dermatology", "ENT", "Pediatrics", "Gynecology", "Psychiatry", "Pulmonology"] as const;
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
 interface Props {
