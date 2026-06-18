@@ -35,17 +35,9 @@ const apiSendPrescription = async (id: string) => {
 };
 const apiDownloadRx = (id: string) => window.open(`${BASE_URL}/prescriptions/${id}/pdf`, "_blank");
 
-// ── Constants ─────────────────────────────────────────────────────────────────
 import { getDeptData } from "@/data/departmentData";
 
-const _storedUser = localStorage.getItem("cliniq_user");
-const _dept = _storedUser ? (JSON.parse(_storedUser).specialization || JSON.parse(_storedUser).department || "General Medicine") : "General Medicine";
-const _deptData = getDeptData(_dept);
-
-const COMPLAINTS_LIST = _deptData.complaints;
 const DURATION_OPTIONS = ["1 Day","2 Days","3 Days","5 Days","1 Week","2 Weeks","1 Month"];
-const INVEST_ALL = _deptData.investigations;
-const DIAGNOSES_COMMON = _deptData.diagnoses;
 const PROCEDURES = ["IV Fluids","Nebulization","Oxygen Support","Injection","Dressing","Suturing","Wound Care"];
 const SPECIALISTS = [
   "Cardiologist","Neurologist","Orthopedic Surgeon","Dermatologist","ENT Specialist",
@@ -241,6 +233,12 @@ const DoctorConsultation = () => {
   const patient = patients.find(p => p.id === patientId)
     || (patients as any[]).find(p => p._patient?.id === patientId)?._patient;
   const current = getCurrentPatient();
+
+  const { complaints: COMPLAINTS_LIST, investigations: INVEST_ALL, diagnoses: DIAGNOSES_COMMON } = useMemo(() => {
+    const raw = localStorage.getItem("cliniq_user");
+    const u = raw ? JSON.parse(raw) : null;
+    return getDeptData(u?.specialization || u?.department || "General Medicine");
+  }, []);
 
   const medSearchRef = useRef<HTMLInputElement>(null);
   const [globalSearch, setGlobalSearch] = useState("");

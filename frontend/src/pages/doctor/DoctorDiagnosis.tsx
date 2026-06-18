@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, User, Search, X, ArrowRight, Plus, Activity, RefreshCw } from "lucide-react";
@@ -9,16 +9,9 @@ import { useClinic } from "@/context/ClinicContext";
 const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:5000/api";
 const getToken = () => localStorage.getItem("cliniq_token");
 
-// ── Constants ──────────────────────────────────────────────────────────────
 import { getDeptData } from "@/data/departmentData";
 
-const _storedUserDx = localStorage.getItem("cliniq_user");
-const _deptDx = _storedUserDx ? (JSON.parse(_storedUserDx).specialization || JSON.parse(_storedUserDx).department || "General Medicine") : "General Medicine";
-const _deptDataDx = getDeptData(_deptDx);
-
-const COMPLAINTS_SIMPLE = _deptDataDx.complaints;
-const INVESTIGATIONS    = _deptDataDx.investigations;
-const DURATION_OPTIONS  = ["1 Day", "2 Days", "3 Days", "5 Days", "1 Week", "2 Weeks", "1 Month"];
+const DURATION_OPTIONS = ["1 Day", "2 Days", "3 Days", "5 Days", "1 Week", "2 Weeks", "1 Month"];
 
 // ── Interfaces ─────────────────────────────────────────────────────────────
 interface Vitals {
@@ -222,6 +215,12 @@ const DoctorDiagnosis = () => {
   const { patients, refreshQueue, refreshPatients } = useClinic();
   const patient = patients.find(p => p.id === patientId)
     || (patients as any[]).find(p => p._patient?.id === patientId)?._patient;
+
+  const { complaints: COMPLAINTS_SIMPLE, investigations: INVESTIGATIONS } = useMemo(() => {
+    const raw = localStorage.getItem("cliniq_user");
+    const u = raw ? JSON.parse(raw) : null;
+    return getDeptData(u?.specialization || u?.department || "General Medicine");
+  }, []);
 
   // ── Vitals ──
   const [vitals, setVitals] = useState<Vitals>({});
