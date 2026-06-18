@@ -285,12 +285,13 @@ const DoctorConsultation = () => {
   const [followUpOverride, setFollowUpOverride] = useState(false);
 
   // ── Save state ────────────────────────────────────────────────────────────
-  const [saving,       setSaving]       = useState(false);
-  const [saved,        setSaved]        = useState(false);
-  const [savedRxId,    setSavedRxId]    = useState("");
-  const [savedPatient, setSavedPatient] = useState<any>(null);
-  const [sending,      setSending]      = useState(false);
-  const [sendResult,   setSendResult]   = useState<{ success: boolean; message: string } | null>(null);
+  const [saving,        setSaving]        = useState(false);
+  const [saved,         setSaved]         = useState(false);
+  const [savedRxId,     setSavedRxId]     = useState("");
+  const [savedPatient,  setSavedPatient]  = useState<any>(null);
+  const [savedQueueId,  setSavedQueueId]  = useState("");
+  const [sending,       setSending]       = useState(false);
+  const [sendResult,    setSendResult]    = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => { refreshMedicines(); }, []);
 
@@ -357,10 +358,8 @@ const DoctorConsultation = () => {
         referral: finalSpec ? { specialist: finalSpec, notes: referralNotes } : null,
       });
       const rxId = String(res?.prescription?._id || res?.prescription?.id || res?._id || res?.id || "");
-      setSavedRxId(rxId); setSavedPatient(pat); setSaved(true);
-      if (queueEntry?.id) await apiUpdateQueueStatus(queueEntry.id, "done");
-      await refreshQueue();
-      setTimeout(() => refreshQueue(), 1500);
+      const queueId = queueEntry?.id || "";
+      setSavedRxId(rxId); setSavedPatient(pat); setSavedQueueId(queueId); setSaved(true);
     } catch (err: any) {
       alert(err.message || "Failed to finalize prescription");
     } finally { setSaving(false); }
@@ -430,9 +429,8 @@ const DoctorConsultation = () => {
                 <MessageCircle className="w-4 h-4" /> Send to Pharmacy
               </Button>
               <Button variant="outline" onClick={async () => {
-                const qid = current?.queueEntry?.id;
-                if (qid) {
-                  try { await apiUpdateQueueStatus(qid, "done"); await refreshQueue(); } catch {}
+                if (savedQueueId) {
+                  try { await apiUpdateQueueStatus(savedQueueId, "done"); await refreshQueue(); } catch {}
                 }
                 navigate("/doctor/dashboard");
               }} className="w-full h-11 rounded-xl border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 gap-2">
