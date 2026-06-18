@@ -645,6 +645,16 @@ const DoctorPrescription = () => {
                 <span className="text-sm font-medium text-foreground">Send to Pharmacy</span>
               </label>
 
+              {/* Finish — mark done & go back */}
+              <Button variant="outline" onClick={async () => {
+                if (savedQueueId) {
+                  try { await apiUpdateQueueStatus(savedQueueId, "done"); await refreshQueue(); } catch {}
+                }
+                navigate("/doctor/dashboard");
+              }} className="w-full h-12 rounded-xl text-base font-medium gap-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10" size="lg">
+                <Check className="w-4 h-4" /> Finish
+              </Button>
+
               {/* Book Follow-up */}
               <label className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 cursor-pointer transition-colors">
                 <input type="checkbox" checked={actionFollowUp} onChange={e => setActionFollowUp(e.target.checked)}
