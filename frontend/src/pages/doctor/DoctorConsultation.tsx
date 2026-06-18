@@ -595,8 +595,6 @@ const DoctorConsultation = () => {
                           onClick={() => {
                             if (isComplaintSel(c)) {
                               setSelectedComplaints(prev => prev.filter(x => x !== c && !x.startsWith(`${c} -`)));
-                            } else if (hasSub) {
-                              setSubModal(c);
                             } else {
                               setPendingLabel(c);
                             }
