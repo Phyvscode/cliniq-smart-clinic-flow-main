@@ -543,12 +543,15 @@ const PharmacyDashboard = () => {
             className="h-9 px-4 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-400 hover:border-gray-400 flex items-center gap-1.5 transition-colors">
             <Pill className="w-3.5 h-3.5" /> Medicines
           </button>
+          <button onClick={loadQueue}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" title="Refresh">
+            <RefreshCw className="w-4 h-4" />
+          </button>
           <button onClick={() => setShowChangePin(true)}
             className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
             <KeyRound className="w-4 h-4" />
           </button>
-          <button onClick={loadQueue}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+          <button className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
             <Bell className="w-4 h-4" />
           </button>
         </div>
