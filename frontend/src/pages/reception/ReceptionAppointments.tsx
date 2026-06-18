@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Bell, RefreshCw } from "lucide-react";
+import { Search, Bell, RefreshCw, X } from "lucide-react";
 import { useClinic } from "@/context/ClinicContext";
 import ReceptionSidebar from "@/components/reception/ReceptionSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -12,9 +11,16 @@ const fmt = (d: string) => {
 };
 
 const ReceptionAppointments = () => {
-  const navigate = useNavigate();
-  const { queue, patients, refreshQueue, refreshPatients } = useClinic();
-  const [search, setSearch] = useState("");
+  const { queue, patients, refreshQueue, refreshPatients, removeFromQueue } = useClinic();
+  const [search,   setSearch]   = useState("");
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  const handleRemove = async (entryId: string) => {
+    setRemoving(entryId);
+    try { await removeFromQueue(entryId); }
+    catch {}
+    finally { setRemoving(null); }
+  };
 
   useEffect(() => {
     refreshQueue(); refreshPatients();
@@ -126,11 +132,16 @@ const ReceptionAppointments = () => {
                       </div>
 
                       {/* Action */}
-                      <div className="w-28 shrink-0 text-right">
+                      <div className="w-28 shrink-0 flex justify-end">
                         {isDone ? (
                           <span className="text-sm text-gray-300 dark:text-gray-700">Completed</span>
                         ) : (
-                          <span className="text-gray-200 dark:text-gray-800">—</span>
+                          <button onClick={() => handleRemove(row.entry.id)} disabled={removing === row.entry.id}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 border border-gray-200 dark:border-gray-700 transition-all disabled:opacity-40">
+                            {removing === row.entry.id
+                              ? <RefreshCw className="w-3 h-3 animate-spin" />
+                              : <X className="w-3.5 h-3.5" />}
+                          </button>
                         )}
                       </div>
                     </motion.div>
