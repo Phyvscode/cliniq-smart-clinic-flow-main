@@ -36,27 +36,16 @@ const apiSendPrescription = async (id: string) => {
 const apiDownloadRx = (id: string) => window.open(`${BASE_URL}/prescriptions/${id}/pdf`, "_blank");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const COMPLAINTS_LIST = [
-  "Fever","Cold","Cough","Headache","Body Ache","Weakness","Chest Pain","Breathlessness",
-  "Acidity","Nausea","Vomiting","Loose Motions","Dizziness","Sore Throat","Allergy",
-  "Abdominal Pain","Back Pain","Itching","Fatigue","Swelling","Eye Redness","Skin Rash",
-  "Burning Urination","Constipation",
-];
-const BODY_AREAS = ["Head","Chest","Abdomen","Back","Leg","Knee","Shoulder","Neck","Joint"];
-const COMPLAINTS_WITH_SUB: Record<string, string[]> = {
-  "Pain": [...BODY_AREAS, "Ear","Tooth","Eye","Throat"],
-};
+import { getDeptData } from "@/data/departmentData";
+
+const _storedUser = localStorage.getItem("cliniq_user");
+const _dept = _storedUser ? (JSON.parse(_storedUser).specialization || JSON.parse(_storedUser).department || "General Medicine") : "General Medicine";
+const _deptData = getDeptData(_dept);
+
+const COMPLAINTS_LIST = _deptData.complaints;
 const DURATION_OPTIONS = ["1 Day","2 Days","3 Days","5 Days","1 Week","2 Weeks","1 Month"];
-
-const INVEST_COMMON = ["CBC","ESR","CRP","RBS","FBS","HbA1c","LFT","KFT","Urine R/M","TSH","Lipid Profile","ECG","Chest X-Ray","USG Abdomen","Dengue NS1"];
-const INVEST_GM_SPECIFIC = ["Widal","Malaria Antigen","COVID RAT","Dengue IgM","Leptospira IgM","Thyroid Profile (T3,T4,TSH)","Hepatitis B (HBsAg)","HIV Screening"];
-const INVEST_ALL = [...INVEST_COMMON, ...INVEST_GM_SPECIFIC, "Blood Sugar (PP)","CT Scan","MRI","Echo","Vitamin D","Vitamin B12","Serum Electrolytes","Urine Culture","Blood Culture"];
-
-const DIAGNOSES_COMMON = [
-  "Viral Fever","URTI","LRTI","Gastritis","AGE (Acute Gastroenteritis)","Hypertension",
-  "Type 1 Diabetes Mellitus","Type 2 Diabetes Mellitus","Migraine","Allergic Rhinitis",
-  "UTI","Acute Bronchitis","Asthma","Sinusitis","Dengue Fever","Malaria","Hypothyroidism","Anemia","Tonsillitis","GERD",
-];
+const INVEST_ALL = _deptData.investigations;
+const DIAGNOSES_COMMON = _deptData.diagnoses;
 const PROCEDURES = ["IV Fluids","Nebulization","Oxygen Support","Injection","Dressing","Suturing","Wound Care"];
 const SPECIALISTS = [
   "Cardiologist","Neurologist","Orthopedic Surgeon","Dermatologist","ENT Specialist",
@@ -325,9 +314,9 @@ const DoctorConsultation = () => {
   }, [medSearch, selectedCat, ctxMedicines]);
 
   const filteredComplaints = useMemo(() => {
-    if (!complaintSearch) return [...COMPLAINTS_LIST, ...Object.keys(COMPLAINTS_WITH_SUB)];
+    if (!complaintSearch) return COMPLAINTS_LIST;
     const q = complaintSearch.toLowerCase();
-    return [...COMPLAINTS_LIST, ...Object.keys(COMPLAINTS_WITH_SUB)].filter(c => c.toLowerCase().includes(q));
+    return COMPLAINTS_LIST.filter(c => c.toLowerCase().includes(q));
   }, [complaintSearch]);
 
   const isComplaintSel = (c: string) => selectedComplaints.some(s => s === c || s.startsWith(`${c} -`));
@@ -603,9 +592,8 @@ const DoctorConsultation = () => {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {filteredComplaints.map(c => {
-                      const hasSub = !!COMPLAINTS_WITH_SUB[c];
                       return (
-                        <Chip key={c} label={hasSub ? `${c} ›` : c} selected={isComplaintSel(c)}
+                        <Chip key={c} label={c} selected={isComplaintSel(c)}
                           onClick={() => {
                             if (isComplaintSel(c)) {
                               setSelectedComplaints(prev => prev.filter(x => x !== c && !x.startsWith(`${c} -`)));
@@ -639,31 +627,12 @@ const DoctorConsultation = () => {
                     <input placeholder="Add additional investigation…" value={investSearch} onChange={e => setInvestSearch(e.target.value)}
                       className="w-full h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 pl-9 pr-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400" />
                   </div>
-                  {investSearch ? (
-                    <div className="flex flex-wrap gap-2">
-                      {INVEST_ALL.filter(t => t.toLowerCase().includes(investSearch.toLowerCase())).map(t => (
-                        <Chip key={t} label={t} selected={selectedInvest.includes(t)}
-                          onClick={() => setSelectedInvest(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])} color="blue" />
-                      ))}
-                    </div>
-                  ) : (
-                    <>
-                      <SectionLabel>COMMON</SectionLabel>
-                      <div className="flex flex-wrap gap-2 mb-5">
-                        {INVEST_COMMON.map(t => (
-                          <Chip key={t} label={t} selected={selectedInvest.includes(t)}
-                            onClick={() => setSelectedInvest(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])} color="blue" />
-                        ))}
-                      </div>
-                      <SectionLabel>GENERAL MEDICINE SPECIFIC</SectionLabel>
-                      <div className="flex flex-wrap gap-2">
-                        {INVEST_GM_SPECIFIC.map(t => (
-                          <Chip key={t} label={t} selected={selectedInvest.includes(t)}
-                            onClick={() => setSelectedInvest(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])} color="blue" />
-                        ))}
-                      </div>
-                    </>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {INVEST_ALL.filter(t => !investSearch || t.toLowerCase().includes(investSearch.toLowerCase())).map(t => (
+                      <Chip key={t} label={t} selected={selectedInvest.includes(t)}
+                        onClick={() => setSelectedInvest(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])} color="blue" />
+                    ))}
+                  </div>
                 </div>
               </section>
 
@@ -896,7 +865,7 @@ const DoctorConsultation = () => {
 
       <AnimatePresence>
         {subModal && (
-          <SubAreaModal complaint={subModal} areas={COMPLAINTS_WITH_SUB[subModal]}
+          <SubAreaModal complaint={subModal} areas={[]}
             onSelect={label => { setSubModal(null); setPendingLabel(label); }}
             onClose={() => setSubModal(null)} />
         )}

@@ -10,30 +10,15 @@ const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:5
 const getToken = () => localStorage.getItem("cliniq_token");
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const COMPLAINTS_SIMPLE = [
-  "Fever", "Cold", "Cough", "Headache", "Vomiting", "Loose Motions",
-  "Weakness", "Chest Pain", "Breathlessness", "Allergy", "Sore Throat",
-  "Acidity", "Nausea", "Dizziness", "Fatigue", "Constipation",
-  "Eye Redness", "Skin Rash", "Itching", "Swelling", "Burning Urination",
-];
+import { getDeptData } from "@/data/departmentData";
 
-const BODY_AREAS = ["Head", "Chest", "Abdomen", "Back", "Leg", "Knee", "Shoulder", "Neck", "Joint"];
-const PAIN_AREAS = [...BODY_AREAS, "Ear", "Tooth", "Eye", "Throat"];
+const _storedUserDx = localStorage.getItem("cliniq_user");
+const _deptDx = _storedUserDx ? (JSON.parse(_storedUserDx).specialization || JSON.parse(_storedUserDx).department || "General Medicine") : "General Medicine";
+const _deptDataDx = getDeptData(_deptDx);
 
-const COMPLAINTS_WITH_SUB: Record<string, string[]> = {
-  "Body Ache": BODY_AREAS,
-  "Pain":      PAIN_AREAS,
-};
-
-const INVESTIGATIONS = [
-  "CBC", "LFT", "KFT", "Lipid Profile", "Blood Sugar (Fasting)",
-  "Blood Sugar (PP)", "HbA1c", "Urine Routine", "X-Ray Chest", "X-Ray",
-  "CT Scan", "MRI", "ECG", "Echo", "Thyroid Profile", "Dengue Test",
-  "Malaria Test", "Typhoid (Widal)", "USG Abdomen", "CRP", "ESR",
-  "Vitamin D", "Vitamin B12", "Serum Electrolytes", "Urine Culture",
-];
-
-const DURATION_OPTIONS = ["1 Day", "2 Days", "3 Days", "5 Days", "1 Week", "2 Weeks", "1 Month"];
+const COMPLAINTS_SIMPLE = _deptDataDx.complaints;
+const INVESTIGATIONS    = _deptDataDx.investigations;
+const DURATION_OPTIONS  = ["1 Day", "2 Days", "3 Days", "5 Days", "1 Week", "2 Weeks", "1 Month"];
 
 // ── Interfaces ─────────────────────────────────────────────────────────────
 interface Vitals {
@@ -255,7 +240,7 @@ const DoctorDiagnosis = () => {
   const [customTest, setCustomTest]       = useState("");
 
   const handleComplaintClick = (complaint: string) => {
-    const areas = COMPLAINTS_WITH_SUB[complaint];
+    const areas: string[] = [];
     const isSelected = selectedComplaints.some(
       c => c === complaint || c.startsWith(`${complaint} – `) || c.startsWith(`${complaint} - `)
     );
@@ -288,7 +273,7 @@ const DoctorDiagnosis = () => {
   const addCustomComplaint = () => {
     const val = customComplaint.trim();
     if (!val || selectedComplaints.some(c => c === val || c.startsWith(`${val} – `))) return;
-    if (!COMPLAINTS_SIMPLE.includes(val) && !Object.keys(COMPLAINTS_WITH_SUB).includes(val)) {
+    if (!COMPLAINTS_SIMPLE.includes(val)) {
       setAddingCustom(val); // trigger smart-db prompt
     }
     setPendingLabel(val);
@@ -428,11 +413,6 @@ const DoctorDiagnosis = () => {
                   selected={isComplaintSelected(c)}
                   onClick={() => handleComplaintClick(c)} />
               ))}
-              {Object.keys(COMPLAINTS_WITH_SUB).map(c => (
-                <Chip key={c} label={`${c} ›`}
-                  selected={isComplaintSelected(c)}
-                  onClick={() => handleComplaintClick(c)} />
-              ))}
             </div>
 
             {/* Custom complaint input */}
@@ -507,7 +487,7 @@ const DoctorDiagnosis = () => {
       {/* Sub-area modal */}
       <AnimatePresence>
         {subModal && (
-          <SubAreaModal complaint={subModal} areas={COMPLAINTS_WITH_SUB[subModal]}
+          <SubAreaModal complaint={subModal} areas={[]}
             onSelect={handleSubSelect}
             onClose={() => setSubModal(null)} />
         )}
