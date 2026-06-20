@@ -8,13 +8,13 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const NAV = [
   { key: "appointments", icon: Calendar,      label: "Appointments", path: "/doctor/dashboard"     },
   { key: "consultation", icon: Stethoscope,   label: "Consultation", path: "/doctor/consultation"  },
-  { key: "laboratory",   icon: FlaskConical,  label: "Laboratory",   path: null                    },
+  { key: "laboratory",   icon: FlaskConical,  label: "Laboratory",   path: "/doctor/laboratory"    },
   { key: "ipd",          icon: BedDouble,     label: "IPD",          path: null                    },
   { key: "history",      icon: ClipboardList, label: "Patient History", path: "/doctor/history"   },
 ];
 
 interface Props {
-  active: "appointments" | "consultation" | "history";
+  active: "appointments" | "consultation" | "history" | "laboratory";
 }
 
 const DoctorSidebar = ({ active }: Props) => {

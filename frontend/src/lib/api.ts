@@ -203,3 +203,24 @@ export const apiPharmacyDeleteMedicine = (id: string) =>
 export const apiOtcCreate = (body: any) =>
   request("/pharmacy/otc", { method: "POST", body: JSON.stringify(body) });
 export const apiOtcSales  = () => request("/pharmacy/otc");
+
+// ── Lab Orders ────────────────────────────────────────────────────────────────
+export const apiCreateLabOrder = (body: { patientId: string; tests: string[]; notes?: string }) =>
+  request("/lab/orders", { method: "POST", body: JSON.stringify(body) });
+
+export const apiGetLabOrders = (params?: { date?: string; status?: string }) => {
+  const q = new URLSearchParams();
+  if (params?.date)   q.set("date",   params.date);
+  if (params?.status) q.set("status", params.status);
+  const qs = q.toString();
+  return request(`/lab/orders${qs ? `?${qs}` : ""}`);
+};
+
+export const apiUpdateLabOrderStatus = (id: string, status: string) =>
+  request(`/lab/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+
+export const apiCollectLabFee = (id: string, paymentMethod: string) =>
+  request(`/lab/orders/${id}/fee`, { method: "PATCH", body: JSON.stringify({ paymentMethod }) });
+
+export const apiUploadLabReport = (id: string, reportBase64: string, reportFileName: string) =>
+  request(`/lab/orders/${id}/report`, { method: "PATCH", body: JSON.stringify({ reportBase64, reportFileName }) });

@@ -16,6 +16,9 @@ import ReceptionFollowUps    from "@/pages/reception/ReceptionFollowUps";
 import ReceptionBeds         from "@/pages/reception/ReceptionBeds";
 import PharmacyAuthPage   from "@/pages/pharmacy/PharmacyAuthPage";
 import PharmacyDashboard  from "@/pages/pharmacy/PharmacyDashboard";
+import LabAuthPage        from "@/pages/lab/LabAuthPage";
+import LabDashboard       from "@/pages/lab/LabDashboard";
+import DoctorLaboratory   from "@/pages/doctor/DoctorLaboratory";
 import PatientMobilePage  from "@/pages/patient/PatientMobilePage";
 import PatientHistoryPage from "@/pages/PatientHistoryPage";
 
@@ -49,6 +52,9 @@ const App = () => (
         <Route path="/pharmacy"            element={<Navigate to="/pharmacy/login" replace />} />
         <Route path="/pharmacy/login"      element={<PharmacyAuthPage />} />
         <Route path="/pharmacy/dashboard"  element={<RequireAuth role="pharmacist"> <PharmacyDashboard />  </RequireAuth>} />
+        <Route path="/doctor/laboratory"   element={<RequireAuth role="doctor">     <DoctorLaboratory />   </RequireAuth>} />
+        <Route path="/lab"                 element={<LabAuthPage />} />
+        <Route path="/lab/dashboard"       element={<RequireAuth role="lab_staff">  <LabDashboard />       </RequireAuth>} />
         <Route path="/patient"             element={<PatientMobilePage />} />
         <Route path="*"                    element={<NotFound />} />
       </Routes>

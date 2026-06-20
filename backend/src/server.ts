@@ -15,6 +15,7 @@ import "./models/Queue";
 import "./models/Prescription";
 import "./models/Staff";
 import "./models/PasswordReset";
+import "./models/LabOrder";
 
 // Routes
 import authRoutes         from "./routes/authRoutes";
@@ -28,6 +29,7 @@ import revenueRoutes      from "./routes/revenueRoutes";
 import salaryRoutes       from "./routes/salaryRoutes";
 import paymentRoutes      from "./routes/paymentRoutes";
 import tierRoutes         from "./routes/tierRoutes";
+import labOrderRoutes     from "./routes/labOrderRoutes";
 
 const app = express();
 
@@ -59,6 +61,7 @@ app.use("/api/revenue",       revenueRoutes);
 app.use("/api/salary",        salaryRoutes);
 app.use("/api/payments",      paymentRoutes);
 app.use("/api/tier",          tierRoutes);
+app.use("/api/lab",           labOrderRoutes);
 
 app.use(errorHandler);
 

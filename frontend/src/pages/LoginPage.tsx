@@ -1,15 +1,14 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Stethoscope, UserCheck, Pill, ArrowUpRight } from "lucide-react";
+import { Stethoscope, UserCheck, Pill, FlaskConical, ArrowUpRight } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-type Role = "doctor" | "reception" | "pharmacist";
-
-const roles: { key: Role; icon: typeof Stethoscope; category: string; label: string; desc: string; route: string }[] = [
-  { key: "doctor",     icon: Stethoscope, category: "CLINICAL",    label: "Doctor",       desc: "Pick your profile and sign in with PIN",  route: "/doctor"       },
-  { key: "reception",  icon: UserCheck,   category: "FRONT DESK",  label: "Receptionist", desc: "Register patients, tokens & queue",        route: "/reception"    },
-  { key: "pharmacist", icon: Pill,        category: "PHARMACY",    label: "Pharmacist",   desc: "Dispense, billing & inventory",            route: "/pharmacy/login" },
+const roles = [
+  { key: "doctor",     icon: Stethoscope,  category: "CLINICAL",    label: "Doctor",       desc: "Pick your profile and sign in with PIN",  route: "/doctor"         },
+  { key: "reception",  icon: UserCheck,    category: "FRONT DESK",  label: "Receptionist", desc: "Register patients, tokens & queue",        route: "/reception"      },
+  { key: "pharmacist", icon: Pill,         category: "PHARMACY",    label: "Pharmacist",   desc: "Dispense, billing & inventory",            route: "/pharmacy/login" },
+  { key: "lab",        icon: FlaskConical, category: "LABORATORY",  label: "Lab Portal",   desc: "View test orders & upload reports",        route: "/lab"            },
 ];
 
 const LoginPage = () => {
@@ -62,7 +61,7 @@ const LoginPage = () => {
             One calm, connected workspace for every member of your team.
           </p>
 
-          <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
+          <div className="grid grid-cols-4 gap-4 max-w-3xl mx-auto">
             {roles.map((role, i) => (
               <motion.button
                 key={role.key}
