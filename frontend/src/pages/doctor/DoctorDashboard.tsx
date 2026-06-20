@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Bell, RefreshCw, KeyRound } from "lucide-react";
+import { Search, RefreshCw, KeyRound } from "lucide-react";
 import { useClinic } from "@/context/ClinicContext";
 import DoctorSidebar from "@/components/doctor/DoctorSidebar";
 import ChangePinModal from "@/components/ChangePinModal";
@@ -84,14 +84,6 @@ const DoctorDashboard = () => {
             className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
             title="Change PIN">
             <KeyRound className="w-4 h-4" />
-          </button>
-          <button className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors relative">
-            <Bell className="w-4 h-4" />
-            {pendingCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">
-                {pendingCount}
-              </span>
-            )}
           </button>
         </div>
 

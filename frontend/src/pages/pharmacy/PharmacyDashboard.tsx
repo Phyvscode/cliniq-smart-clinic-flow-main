@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Bell, RefreshCw, X, Check, AlertTriangle,
+  Search, RefreshCw, X, Check, AlertTriangle,
   LogOut, KeyRound, Archive, CheckCircle2, IndianRupee, Receipt,
-  Banknote, Smartphone, CreditCard, Wallet, Settings,
+  Banknote, Smartphone, CreditCard, Wallet,
   ShoppingCart, Plus, MinusCircle, PlusCircle, Trash2,
   Printer, Send, User, Pill, ChevronRight,
 } from "lucide-react";
@@ -59,8 +59,6 @@ const PharmacySidebar = ({ onLogout, onChangePin }: { onLogout: () => void; onCh
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         {[
           { icon: Pill,     label: "Pharmacy", active: true  },
-          { icon: Bell,     label: "Alerts",   active: false },
-          { icon: Settings, label: "Settings", active: false },
         ].map(item => (
           <button key={item.label}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
@@ -550,9 +548,6 @@ const PharmacyDashboard = () => {
           <button onClick={() => setShowChangePin(true)}
             className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
             <KeyRound className="w-4 h-4" />
-          </button>
-          <button className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
-            <Bell className="w-4 h-4" />
           </button>
         </div>
 

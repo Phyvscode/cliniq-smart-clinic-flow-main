@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Bell, RefreshCw, X, UserPlus, Check, UserCheck,
+  Search, RefreshCw, X, UserPlus, Check, UserCheck,
   Phone, ChevronDown, Users, UserX, Clock, KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -294,9 +294,6 @@ const ReceptionDashboard = () => {
           </button>
           <button onClick={() => setShowChangePin(true)} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" title="Change PIN">
             <KeyRound className="w-4 h-4" />
-          </button>
-          <button className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
-            <Bell className="w-4 h-4" />
           </button>
         </div>
 

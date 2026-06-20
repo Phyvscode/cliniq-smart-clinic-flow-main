@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import {
   Calendar, Stethoscope, FlaskConical, BedDouble,
-  ClipboardList, Bell, Settings, LogOut, ChevronLeft,
+  ClipboardList, LogOut, ChevronLeft,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -11,8 +11,6 @@ const NAV = [
   { key: "laboratory",   icon: FlaskConical,  label: "Laboratory",   path: null                    },
   { key: "ipd",          icon: BedDouble,     label: "IPD",          path: null                    },
   { key: "history",      icon: ClipboardList, label: "Patient History", path: null                 },
-  { key: "alerts",       icon: Bell,          label: "Alerts",       path: null                    },
-  { key: "settings",     icon: Settings,      label: "Settings",     path: null                    },
 ];
 
 interface Props {
