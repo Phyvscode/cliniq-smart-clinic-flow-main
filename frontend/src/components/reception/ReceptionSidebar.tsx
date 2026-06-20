@@ -11,10 +11,10 @@ const NAV = [
   { key: "tests",        icon: FlaskConical,  label: "Tests",           path: "/reception/tests"        },
   { key: "followups",    icon: Phone,         label: "Follow-ups",      path: "/reception/followups"    },
   { key: "beds",         icon: BedDouble,     label: "Beds & Cabins",   path: "/reception/beds"         },
-  { key: "history",      icon: ClipboardList, label: "Patient History", path: null                      },
+  { key: "history",      icon: ClipboardList, label: "Patient History", path: "/reception/history"   },
 ];
 
-export type ReceptionNav = "reception" | "appointments" | "tests" | "followups" | "beds";
+export type ReceptionNav = "reception" | "appointments" | "tests" | "followups" | "beds" | "history";
 
 interface Props { active: ReceptionNav; }
 

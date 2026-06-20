@@ -120,3 +120,15 @@ export const removeFromQueue = asyncHandler(async (req: AuthRequest, res: Respon
   if (!entry) { res.status(404).json({ message: "Queue entry not found" }); return; }
   res.json({ message: "Removed from queue" });
 });
+
+// GET /api/queue/history?date=YYYY-MM-DD — all entries for a given date (all statuses)
+export const getQueueHistory = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const date = (req.query.date as string) || todayString();
+
+  const entries = await Queue.find({ date })
+    .populate("patient")
+    .populate("doctor", "name")
+    .sort({ queueNumber: 1 });
+
+  res.json({ entries, date });
+});

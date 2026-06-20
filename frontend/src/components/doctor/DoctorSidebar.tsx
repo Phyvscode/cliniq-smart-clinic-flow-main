@@ -10,11 +10,11 @@ const NAV = [
   { key: "consultation", icon: Stethoscope,   label: "Consultation", path: "/doctor/consultation"  },
   { key: "laboratory",   icon: FlaskConical,  label: "Laboratory",   path: null                    },
   { key: "ipd",          icon: BedDouble,     label: "IPD",          path: null                    },
-  { key: "history",      icon: ClipboardList, label: "Patient History", path: null                 },
+  { key: "history",      icon: ClipboardList, label: "Patient History", path: "/doctor/history"   },
 ];
 
 interface Props {
-  active: "appointments" | "consultation";
+  active: "appointments" | "consultation" | "history";
 }
 
 const DoctorSidebar = ({ active }: Props) => {

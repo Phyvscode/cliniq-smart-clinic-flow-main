@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   getQueue, addToQueue, nextPatient,
-  updateQueueStatus, removeFromQueue,
+  updateQueueStatus, removeFromQueue, getQueueHistory,
 } from "../controllers/queueController";
 import { protect, requireRole } from "../middleware/auth";
 
@@ -10,6 +10,7 @@ const router = Router();
 router.use(protect);
 
 router.get("/",              getQueue);
+router.get("/history",       getQueueHistory);
 router.post("/",             requireRole("reception", "admin"), addToQueue);
 router.post("/next",         requireRole("reception", "admin", "doctor"), nextPatient);
 router.patch("/:id/status",  requireRole("reception", "admin", "doctor"), updateQueueStatus); // ← frontend uses /status
