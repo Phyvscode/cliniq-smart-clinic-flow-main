@@ -105,11 +105,13 @@ export const nextPatient = asyncHandler(async (req: AuthRequest, res: Response) 
 // PATCH /api/queue/:id
 export const updateQueueStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { status } = req.body;
+  const update: any = { status };
+  if (status === "done" && req.user?._id) update.doctor = req.user._id;
   const entry = await Queue.findByIdAndUpdate(
     req.params.id,
-    { status },
+    update,
     { new: true, runValidators: true },
-  ).populate("patient");
+  ).populate("patient").populate("doctor", "name");
   if (!entry) { res.status(404).json({ message: "Queue entry not found" }); return; }
   res.json({ entry });
 });
