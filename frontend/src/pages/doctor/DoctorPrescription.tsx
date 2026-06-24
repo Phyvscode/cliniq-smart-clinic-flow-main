@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useClinic } from "@/context/ClinicContext";
 import { Medicine, PrescriptionMedicine } from "@/data/mockData";
 import { apiUpdateQueueStatus } from "@/lib/api";
+import { getAllowedCategories, getDeptMedicineCategories } from "@/data/medicineCategoriesByDepartment";
 
 const BASE_URL = (import.meta.env.VITE_API_URL as string) || "http://localhost:5000/api";
 const getToken = () => localStorage.getItem("cliniq_token");
@@ -59,24 +60,6 @@ const FREQUENCY_INTERVALS: { key: "4h" | "6h" | "8h" | "12h"; label: string }[] 
 ];
 
 type DoseSlot = "morning" | "afternoon" | "evening" | "night";
-
-const MEDICINE_CATEGORIES = [
-  { key: "Fever & Pain",  emoji: "🌡️" },
-  { key: "Antibiotics",   emoji: "💊" },
-  { key: "Allergy & Cold",emoji: "🤧" },
-  { key: "Gastric",       emoji: "🫁" },
-  { key: "Vitamins",      emoji: "💪" },
-  { key: "Diabetes",      emoji: "🩸" },
-  { key: "BP & Cardiac",  emoji: "❤️" },
-  { key: "Injections",    emoji: "💉" },
-  { key: "Dermatology",   emoji: "🧴" },
-  { key: "ENT",           emoji: "👂" },
-  { key: "Ophthalmology", emoji: "👁️" },
-  { key: "Pulmonology",   emoji: "🫀" },
-  { key: "Pediatric",     emoji: "👶" },
-  { key: "Gynecology",    emoji: "🌸" },
-  { key: "Psychiatry",    emoji: "🧠" },
-];
 
 
 const DOSE_SLOTS: DoseSlot[] = ["morning", "afternoon", "evening", "night"];
@@ -340,6 +323,13 @@ const DoctorPrescription = () => {
   const { getCurrentPatient, refreshQueue, refreshMedicines, medicines: ctxMedicines } = useClinic();
   const current = getCurrentPatient();
 
+  const doctorDept = useMemo(() => {
+    const u = JSON.parse(localStorage.getItem("cliniq_user") || "null");
+    return u?.specialization || u?.department || "General Medicine";
+  }, []);
+  const allowedCategories = getAllowedCategories(doctorDept);
+  const deptMedicineCategories = getDeptMedicineCategories(doctorDept);
+
   const [medicines,     setMedicines]     = useState<PrescriptionMedicine[]>([]);
   const [searchQuery,   setSearchQuery]   = useState("");
   const [showSearch,    setShowSearch]    = useState(false);
@@ -404,11 +394,19 @@ const DoctorPrescription = () => {
   }, [medicines, followUpOverride]);
 
   const filteredMeds = useMemo(() => {
-    let meds = ctxMedicines;
+    // Doctors can only prescribe from their own department's medicine categories.
+    let meds = ctxMedicines.filter((m: any) => allowedCategories.includes(m.category));
     if (selectedCat) meds = meds.filter((m: any) => m.category === selectedCat);
-    if (searchQuery)  meds = meds.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      meds = meds.filter((m: any) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.category || "").toLowerCase().includes(q) ||
+        (m.type || "").toLowerCase().includes(q)
+      );
+    }
     return meds;
-  }, [searchQuery, selectedCat, ctxMedicines]);
+  }, [searchQuery, selectedCat, ctxMedicines, allowedCategories]);
 
   const filteredSpecialists = SPECIALISTS.filter(s =>
     s.toLowerCase().includes(specialistSearch.toLowerCase())
@@ -700,9 +698,12 @@ const DoctorPrescription = () => {
             {showSearch ? (
               <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
                 className="bg-card border border-border rounded-xl p-4">
+                <p className="text-[11px] font-medium text-muted-foreground mb-2">
+                  Showing {doctorDept} medicines only
+                </p>
                 <div className="relative mb-3">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Search medicines…" value={searchQuery}
+                  <Input placeholder="Search medicines by name or type…" value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     className="pl-10 rounded-xl" autoFocus />
                 </div>
@@ -712,7 +713,7 @@ const DoctorPrescription = () => {
                     className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
                       !selectedCat ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"
                     }`}>All</button>
-                  {MEDICINE_CATEGORIES.map(cat => (
+                  {deptMedicineCategories.map(cat => (
                     <button key={cat.key} onClick={() => setSelectedCat(cat.key === selectedCat ? "" : cat.key)}
                       className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
                         selectedCat === cat.key ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"

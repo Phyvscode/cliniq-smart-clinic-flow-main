@@ -36,6 +36,7 @@ const apiSendPrescription = async (id: string) => {
 const apiDownloadRx = (id: string) => window.open(`${BASE_URL}/prescriptions/${id}/pdf`, "_blank");
 
 import { getDeptData } from "@/data/departmentData";
+import { getDeptMedicineCategories, getAllowedCategories } from "@/data/medicineCategoriesByDepartment";
 
 const DURATION_OPTIONS = ["1 Day","2 Days","3 Days","5 Days","1 Week","2 Weeks","1 Month"];
 const PROCEDURES = ["IV Fluids","Nebulization","Oxygen Support","Injection","Dressing","Suturing","Wound Care"];
@@ -43,17 +44,6 @@ const SPECIALISTS = [
   "Cardiologist","Neurologist","Orthopedic Surgeon","Dermatologist","ENT Specialist",
   "Ophthalmologist","Gynecologist","Pediatrician","Psychiatrist","Oncologist",
   "Urologist","Nephrologist","Gastroenterologist","Pulmonologist","Endocrinologist","Physiotherapist",
-];
-const QUICK_CATEGORIES = [
-  { key: "Fever & Pain",  emoji: "🌡️" },
-  { key: "Cold & Allergy",emoji: "🤧" },
-  { key: "Antibiotics",   emoji: "🦠" },
-  { key: "Gastric",       emoji: "🫁" },
-  { key: "Diabetes",      emoji: "🩸" },
-  { key: "BP & Cardiac",  emoji: "❤️" },
-  { key: "Vitamins",      emoji: "💊" },
-  { key: "Dermatology",   emoji: "🧴" },
-  { key: "Pediatric",     emoji: "👶" },
 ];
 const DURATION_PRESETS = [1, 3, 5, 7, 10, 14, 21, 30];
 const SPECIAL_INSTRUCTIONS = ["Before food","After food","With food","Empty stomach","Before sleep","With warm water","With milk","Apply externally"];
@@ -234,11 +224,16 @@ const DoctorConsultation = () => {
     || (patients as any[]).find(p => p._patient?.id === patientId)?._patient;
   const current = getCurrentPatient();
 
-  const { complaints: COMPLAINTS_LIST, investigations: INVEST_ALL, diagnoses: DIAGNOSES_COMMON } = useMemo(() => {
+  const doctorDept = useMemo(() => {
     const raw = localStorage.getItem("cliniq_user");
     const u = raw ? JSON.parse(raw) : null;
-    return getDeptData(u?.specialization || u?.department || "General Medicine");
+    return u?.specialization || u?.department || "General Medicine";
   }, []);
+  const { complaints: COMPLAINTS_LIST, investigations: INVEST_ALL, diagnoses: DIAGNOSES_COMMON } = useMemo(
+    () => getDeptData(doctorDept), [doctorDept]
+  );
+  const allowedMedCategories = useMemo(() => getAllowedCategories(doctorDept), [doctorDept]);
+  const deptMedicineCategories = useMemo(() => getDeptMedicineCategories(doctorDept), [doctorDept]);
 
   const medSearchRef = useRef<HTMLInputElement>(null);
   const [globalSearch, setGlobalSearch] = useState("");
@@ -303,14 +298,27 @@ const DoctorConsultation = () => {
     setFollowUpDate(d.toISOString().split("T")[0]);
   }, [medicines, followUpOverride]);
 
-  const freqPrescribed = useMemo(() => ctxMedicines.slice(0, 6), [ctxMedicines]);
+  // Doctors can only prescribe from their own department's medicine categories.
+  const deptMeds = useMemo(
+    () => ctxMedicines.filter((m: any) => allowedMedCategories.includes(m.category)),
+    [ctxMedicines, allowedMedCategories]
+  );
+
+  const freqPrescribed = useMemo(() => deptMeds.slice(0, 6), [deptMeds]);
 
   const filteredMeds = useMemo(() => {
-    let meds = ctxMedicines;
+    let meds = deptMeds;
     if (selectedCat) meds = meds.filter((m: any) => m.category === selectedCat);
-    if (medSearch)   meds = meds.filter(m => m.name.toLowerCase().includes(medSearch.toLowerCase()));
+    const q = medSearch.trim().toLowerCase();
+    if (q) {
+      meds = meds.filter((m: any) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.category || "").toLowerCase().includes(q) ||
+        (m.type || "").toLowerCase().includes(q)
+      );
+    }
     return meds;
-  }, [medSearch, selectedCat, ctxMedicines]);
+  }, [medSearch, selectedCat, deptMeds]);
 
   const filteredComplaints = useMemo(() => {
     if (!complaintSearch) return COMPLAINTS_LIST;
@@ -692,9 +700,12 @@ const DoctorConsultation = () => {
                         className="h-8 px-3 rounded-full border border-dashed border-gray-300 dark:border-gray-700 bg-transparent text-xs text-gray-600 dark:text-gray-400 placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-gray-400 w-28" />
                     </div>
                   </div>
+                  <p className="text-[11px] font-medium text-gray-400 dark:text-gray-600">
+                    Showing {doctorDept} medicines only
+                  </p>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input ref={medSearchRef} placeholder="Search medicines, brands, or salts..."
+                    <input ref={medSearchRef} placeholder="Search medicines by name or type..."
                       value={medSearch} onChange={e => { setMedSearch(e.target.value); setShowMedDropdown(true); }}
                       onFocus={() => setShowMedDropdown(true)}
                       className="w-full h-11 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 pl-9 pr-12 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:bg-white dark:focus:bg-white/10 transition-colors" />
@@ -725,9 +736,9 @@ const DoctorConsultation = () => {
                   {!medSearch && (
                     <>
                       <div>
-                        <SectionLabel>• QUICK CATEGORIES</SectionLabel>
+                        <SectionLabel>• {doctorDept.toUpperCase()} CATEGORIES</SectionLabel>
                         <div className="grid grid-cols-5 gap-2">
-                          {QUICK_CATEGORIES.map(cat => (
+                          {deptMedicineCategories.map(cat => (
                             <button key={cat.key}
                               onClick={() => { setSelectedCat(selectedCat === cat.key ? "" : cat.key); setShowMedDropdown(true); }}
                               className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border transition-all ${selectedCat === cat.key ? "border-gray-900 dark:border-white bg-gray-50 dark:bg-white/10" : "border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700"}`}>

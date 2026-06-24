@@ -110,9 +110,10 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await apiGetMedicines();
       setMedicines((res.medicines || []).map((m: any) => ({
-        id:   String(m._id || m.id),
-        name: m.name,
-        type: m.type,
+        id:       String(m._id || m.id),
+        name:     m.name,
+        type:     m.type,
+        category: m.category,
       })));
     } catch { }
   }, []);
