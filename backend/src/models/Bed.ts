@@ -7,6 +7,7 @@ export interface IBed extends Document {
   patient?:    mongoose.Types.ObjectId;
   queueEntry?: mongoose.Types.ObjectId;
   occupiedAt?: Date;
+  vacatedAt?:  Date;
 }
 
 const BedSchema = new Schema<IBed>(
@@ -17,6 +18,7 @@ const BedSchema = new Schema<IBed>(
     patient:     { type: Schema.Types.ObjectId, ref: "Patient" },
     queueEntry:  { type: Schema.Types.ObjectId, ref: "Queue" },
     occupiedAt:  { type: Date },
+    vacatedAt:   { type: Date },
   },
   { timestamps: true }
 );

@@ -9,6 +9,7 @@ export interface ILabOrder extends Document {
   status:         LabOrderStatus;
   feeCollected:   boolean;
   paymentMethod?: string;
+  amount?:        number;
   reportBase64?:  string;
   reportFileName?:string;
   notes?:         string;
@@ -23,6 +24,7 @@ const LabOrderSchema = new Schema<ILabOrder>(
     status:         { type: String, enum: ["ordered","sample_collected","processing","report_ready"], default: "ordered" },
     feeCollected:   { type: Boolean, default: false },
     paymentMethod:  { type: String },
+    amount:         { type: Number, default: 0 },
     reportBase64:   { type: String },
     reportFileName: { type: String },
     notes:          { type: String },

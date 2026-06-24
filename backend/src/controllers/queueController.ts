@@ -137,7 +137,7 @@ export const removeFromQueue = asyncHandler(async (req: AuthRequest, res: Respon
 const vacateBedForQueueEntry = async (queueEntryId: unknown) => {
   await Bed.updateMany(
     { queueEntry: queueEntryId, status: "occupied" },
-    { $set: { status: "available" }, $unset: { patient: "", queueEntry: "", occupiedAt: "" } },
+    { $set: { status: "available", vacatedAt: new Date() }, $unset: { patient: "", queueEntry: "", occupiedAt: "" } },
   );
 };
 

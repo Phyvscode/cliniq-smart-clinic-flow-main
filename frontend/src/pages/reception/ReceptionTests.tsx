@@ -49,7 +49,7 @@ const DetailPanel = ({
 }: {
   order: any;
   onClose: () => void;
-  onFeeCollected: (id: string, payMethod: string) => Promise<void>;
+  onFeeCollected: (id: string, payMethod: string, amount: number) => Promise<void>;
 }) => {
   const [payMethod, setPayMethod]   = useState("cash");
   const [collecting, setCollecting] = useState(false);
@@ -60,7 +60,7 @@ const DetailPanel = ({
 
   const handleCollect = async () => {
     setCollecting(true); setError("");
-    try { await onFeeCollected(order._id, payMethod); }
+    try { await onFeeCollected(order._id, payMethod, total); }
     catch (e: any) { setError(e.message || "Collection failed"); }
     finally { setCollecting(false); }
   };
@@ -187,11 +187,11 @@ const ReceptionTests = () => {
 
   const isToday = date === todayStr();
 
-  const handleFeeCollected = async (id: string, payMethod: string) => {
-    await apiCollectLabFee(id, payMethod);
-    const updated = orders.map(o => o._id === id ? { ...o, feeCollected: true, paymentMethod: payMethod } : o);
+  const handleFeeCollected = async (id: string, payMethod: string, amount: number) => {
+    await apiCollectLabFee(id, payMethod, amount);
+    const updated = orders.map(o => o._id === id ? { ...o, feeCollected: true, paymentMethod: payMethod, amount } : o);
     setOrders(updated);
-    if (selected?._id === id) setSelected((p: any) => ({ ...p, feeCollected: true, paymentMethod: payMethod }));
+    if (selected?._id === id) setSelected((p: any) => ({ ...p, feeCollected: true, paymentMethod: payMethod, amount }));
   };
 
   const pending   = orders.filter(o => !o.feeCollected).length;

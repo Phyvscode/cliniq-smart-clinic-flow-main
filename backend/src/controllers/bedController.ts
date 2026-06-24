@@ -66,6 +66,7 @@ export const vacateBed = asyncHandler(async (req: AuthRequest, res: Response) =>
   bed.patient    = undefined;
   bed.queueEntry = undefined;
   bed.occupiedAt = undefined;
+  bed.vacatedAt  = new Date();
   await bed.save();
 
   res.json({ bed });

@@ -226,8 +226,8 @@ export const apiGetLabOrders = (params?: { date?: string; status?: string }) => 
 export const apiUpdateLabOrderStatus = (id: string, status: string) =>
   request(`/lab/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
 
-export const apiCollectLabFee = (id: string, paymentMethod: string) =>
-  request(`/lab/orders/${id}/fee`, { method: "PATCH", body: JSON.stringify({ paymentMethod }) });
+export const apiCollectLabFee = (id: string, paymentMethod: string, amount: number) =>
+  request(`/lab/orders/${id}/fee`, { method: "PATCH", body: JSON.stringify({ paymentMethod, amount }) });
 
 export const apiUploadLabReport = (id: string, reportBase64: string, reportFileName: string) =>
   request(`/lab/orders/${id}/report`, { method: "PATCH", body: JSON.stringify({ reportBase64, reportFileName }) });

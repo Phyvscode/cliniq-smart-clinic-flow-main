@@ -32,6 +32,7 @@ import paymentRoutes      from "./routes/paymentRoutes";
 import tierRoutes         from "./routes/tierRoutes";
 import labOrderRoutes     from "./routes/labOrderRoutes";
 import bedRoutes          from "./routes/bedRoutes";
+import overviewRoutes     from "./routes/overviewRoutes";
 
 const app = express();
 
@@ -65,6 +66,7 @@ app.use("/api/payments",      paymentRoutes);
 app.use("/api/tier",          tierRoutes);
 app.use("/api/lab",           labOrderRoutes);
 app.use("/api/beds",          bedRoutes);
+app.use("/api/overview",      overviewRoutes);
 
 app.use(errorHandler);
 
