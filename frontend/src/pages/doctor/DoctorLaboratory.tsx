@@ -126,21 +126,23 @@ const DoctorLaboratory = () => {
                         <>
                           <div className="fixed inset-0 z-20" onClick={() => setShowDrop(false)} />
                           <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                            className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-30 overflow-hidden max-h-64 overflow-y-auto">
-                            {patients.map(p => (
-                              <button key={p._id || p.id} onClick={() => selectPatient(p)}
-                                className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 text-left transition-colors">
-                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
-                                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                                    {p.name?.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white">{p.name}</p>
-                                  <p className="text-xs text-gray-400">{p.phone} · {p.age ? `${p.age}y` : ""} {p.gender || ""}</p>
-                                </div>
-                              </button>
-                            ))}
+                            className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                            <div className="max-h-64 overflow-y-auto">
+                              {patients.map(p => (
+                                <button key={p._id || p.id} onClick={() => selectPatient(p)}
+                                  className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 text-left transition-colors">
+                                  <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                      {p.name?.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{p.name}</p>
+                                    <p className="text-xs text-gray-400">{p.phone} · {p.age ? `${p.age}y` : ""} {p.gender || ""}</p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
                           </motion.div>
                         </>
                       )}

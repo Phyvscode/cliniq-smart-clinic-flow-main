@@ -714,23 +714,25 @@ const DoctorConsultation = () => {
                   <AnimatePresence>
                     {showMedDropdown && (medSearch || selectedCat) && (
                       <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-                        {filteredMeds.length === 0 ? (
-                          <p className="text-xs text-gray-400 text-center py-4">No medicines found. Ask admin to add.</p>
-                        ) : filteredMeds.map((med: any) => {
-                          const added = medicines.find(m => m.medicineId === med.id);
-                          return (
-                            <button key={med.id} onClick={() => !added && addMedicine(med)} disabled={!!added}
-                              className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors ${added ? "opacity-40 cursor-not-allowed" : "hover:bg-white dark:hover:bg-white/10"}`}>
-                              <span>
-                                <span className="font-medium text-gray-900 dark:text-white">{med.name}</span>
-                                {med.type && <span className="text-gray-400 ml-1.5 text-xs">· {med.type}</span>}
-                                {!med.stock && <span className="text-red-500 ml-1.5 text-xs font-medium">Out of stock</span>}
-                              </span>
-                              {added && <Check className="w-3.5 h-3.5 text-gray-400" />}
-                            </button>
-                          );
-                        })}
+                        className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900">
+                        <div className="max-h-48 overflow-y-auto">
+                          {filteredMeds.length === 0 ? (
+                            <p className="text-xs text-gray-400 text-center py-4">No medicines found. Ask admin to add.</p>
+                          ) : filteredMeds.map((med: any) => {
+                            const added = medicines.find(m => m.medicineId === med.id);
+                            return (
+                              <button key={med.id} onClick={() => !added && addMedicine(med)} disabled={!!added}
+                                className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors ${added ? "opacity-40 cursor-not-allowed" : "hover:bg-white dark:hover:bg-white/10"}`}>
+                                <span>
+                                  <span className="font-medium text-gray-900 dark:text-white">{med.name}</span>
+                                  {med.type && <span className="text-gray-400 ml-1.5 text-xs">· {med.type}</span>}
+                                  {!med.stock && <span className="text-red-500 ml-1.5 text-xs font-medium">Out of stock</span>}
+                                </span>
+                                {added && <Check className="w-3.5 h-3.5 text-gray-400" />}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </motion.div>
                     )}
                   </AnimatePresence>

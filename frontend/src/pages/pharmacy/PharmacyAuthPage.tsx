@@ -155,21 +155,23 @@ const PharmacyAuthPage = () => {
                 {dropdownOpen && (
                   <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden max-h-64 overflow-y-auto">
-                    {pharmacists.length === 0
-                      ? <div className="px-4 py-6 text-center text-sm text-gray-400">No pharmacists added. Ask admin to add you.</div>
-                      : pharmacists.map(p => (
-                        <button key={p.id} type="button" onClick={() => handleSelect(p.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left ${
-                            selectedId === p.id ? "bg-gray-50 dark:bg-gray-700" : ""
-                          }`}>
-                          <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
-                            <Pill className="w-4 h-4 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />
-                          </div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1">{p.name}</p>
-                        </button>
-                      ))
-                    }
+                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="max-h-64 overflow-y-auto">
+                      {pharmacists.length === 0
+                        ? <div className="px-4 py-6 text-center text-sm text-gray-400">No pharmacists added. Ask admin to add you.</div>
+                        : pharmacists.map(p => (
+                          <button key={p.id} type="button" onClick={() => handleSelect(p.id)}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left ${
+                              selectedId === p.id ? "bg-gray-50 dark:bg-gray-700" : ""
+                            }`}>
+                            <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                              <Pill className="w-4 h-4 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />
+                            </div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1">{p.name}</p>
+                          </button>
+                        ))
+                      }
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
