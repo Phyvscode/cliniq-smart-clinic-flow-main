@@ -231,3 +231,12 @@ export const apiCollectLabFee = (id: string, paymentMethod: string) =>
 
 export const apiUploadLabReport = (id: string, reportBase64: string, reportFileName: string) =>
   request(`/lab/orders/${id}/report`, { method: "PATCH", body: JSON.stringify({ reportBase64, reportFileName }) });
+
+// ── Beds ──────────────────────────────────────────────────────────────────────
+export const apiGetBeds = () => request("/beds");
+
+export const apiAssignBed = (bedId: string, body: { patientId: string; queueEntryId?: string }) =>
+  request(`/beds/${bedId}/assign`, { method: "PATCH", body: JSON.stringify(body) });
+
+export const apiVacateBed = (bedId: string) =>
+  request(`/beds/${bedId}/vacate`, { method: "PATCH" });

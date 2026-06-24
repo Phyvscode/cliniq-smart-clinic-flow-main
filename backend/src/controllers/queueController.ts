@@ -3,6 +3,7 @@ import Queue from "../models/Queue";
 import Staff from "../models/Staff";
 import Patient from "../models/Patient";
 import Payment from "../models/Payment";
+import Bed from "../models/Bed";
 import { AuthRequest } from "../middleware/auth";
 import { asyncHandler } from "../middleware/errorHandler";
 import { todayString } from "../utils/generateToken";
@@ -115,6 +116,9 @@ export const updateQueueStatus = asyncHandler(async (req: AuthRequest, res: Resp
     { new: true, runValidators: true },
   ).populate("patient").populate("doctor", "name");
   if (!entry) { res.status(404).json({ message: "Queue entry not found" }); return; }
+
+  if (status === "done") await vacateBedForQueueEntry(entry._id);
+
   res.json({ entry });
 });
 
@@ -122,8 +126,20 @@ export const updateQueueStatus = asyncHandler(async (req: AuthRequest, res: Resp
 export const removeFromQueue = asyncHandler(async (req: AuthRequest, res: Response) => {
   const entry = await Queue.findByIdAndDelete(req.params.id);
   if (!entry) { res.status(404).json({ message: "Queue entry not found" }); return; }
+
+  await vacateBedForQueueEntry(entry._id);
+
   res.json({ message: "Removed from queue" });
 });
+
+// Frees any bed admitted against this queue entry — called when the visit ends
+// (marked done) or the entry is removed from the queue.
+const vacateBedForQueueEntry = async (queueEntryId: unknown) => {
+  await Bed.updateMany(
+    { queueEntry: queueEntryId, status: "occupied" },
+    { $set: { status: "available" }, $unset: { patient: "", queueEntry: "", occupiedAt: "" } },
+  );
+};
 
 // GET /api/queue/history?date=YYYY-MM-DD[&to=YYYY-MM-DD] — visits for a date or date range
 // (all statuses). Used by the admin "Patients" page — a visit is a Queue entry,

@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RefreshCw, X, UserPlus, Check, UserCheck,
-  Phone, ChevronDown, UserX,
+  Phone, ChevronDown, UserX, BedDouble,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useClinic } from "@/context/ClinicContext";
 import { Patient } from "@/data/mockData";
-import { apiGetPatients } from "@/lib/api";
+import { apiGetPatients, apiGetBeds, apiAssignBed } from "@/lib/api";
 import ReceptionSidebar from "@/components/reception/ReceptionSidebar";
 import { useNavigate } from "react-router-dom";
 
@@ -57,8 +57,16 @@ const ReceptionPatient = () => {
   const [suggestions,   setSuggestions]   = useState<any[]>([]);
   const [showDrop,      setShowDrop]      = useState(false);
   const [searching,     setSearching]     = useState(false);
+  const [admitBed,      setAdmitBed]      = useState(false);
+  const [beds,          setBeds]          = useState<any[]>([]);
+  const [selectedFloor, setSelectedFloor] = useState("");
+  const [selectedBedId, setSelectedBedId] = useState("");
   const dropRef  = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => { apiGetBeds().then((r: any) => setBeds(r.beds || [])).catch(() => {}); }, []);
+  const floors = [...new Set(beds.map(b => b.floor))];
+  const vacantBedsOnFloor = beds.filter(b => b.floor === selectedFloor && b.status === "available");
 
   const maxDate = new Date().toISOString().split("T")[0];
   const minDate = `${new Date().getFullYear() - 120}-01-01`;
@@ -111,10 +119,12 @@ const ReceptionPatient = () => {
   const resetForm = () => {
     setDepartment(""); setPhone(""); setStep("idle"); setFoundPatient(null);
     setName(""); setDob(""); setGender(""); setSuccess(""); setError("");
+    setAdmitBed(false); setSelectedFloor(""); setSelectedBedId("");
   };
 
   const handleSubmit = async () => {
     if (!department) { setError("Please select a department."); return; }
+    if (admitBed && !selectedBedId) { setError("Select a bed, or turn off bed admission."); return; }
     setError(""); setLoading(true);
     try {
       let patient = foundPatient;
@@ -131,9 +141,12 @@ const ReceptionPatient = () => {
         const docs = (d.staff || []).filter((doc: any) => doc.department === department || doc.specialization === department);
         if (docs.length === 0) { setNoDoctorAlert(true); setLoading(false); return; }
       } catch {}
-      await apiAddToQueue(patient.id, department);
+      const { entry } = await apiAddToQueue(patient.id, department);
+      if (admitBed && selectedBedId) {
+        try { await apiAssignBed(selectedBedId, { patientId: patient.id, queueEntryId: entry?._id }); } catch {}
+      }
       await refreshQueue();
-      setSuccess(`${patient.name} added to ${department} queue`);
+      setSuccess(`${patient.name} added to ${department} queue${admitBed ? " and admitted to a bed" : ""}`);
       setTimeout(() => { resetForm(); navigate("/reception/dashboard"); }, 1500);
     } catch (err: any) { setError(err.message || "Something went wrong."); }
     finally { setLoading(false); }
@@ -172,6 +185,44 @@ const ReceptionPatient = () => {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
+              </div>
+
+              {/* Bed admission (IPD) */}
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3.5">
+                <button onClick={() => { setAdmitBed(a => !a); setSelectedFloor(""); setSelectedBedId(""); }}
+                  className="w-full flex items-center gap-3 text-left">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${admitBed ? "bg-gray-900 dark:bg-white" : "bg-gray-100 dark:bg-white/10"}`}>
+                    <BedDouble className={`w-4 h-4 ${admitBed ? "text-white dark:text-gray-900" : "text-gray-400"}`} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">Admit to a bed (IPD)</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Only for patients being admitted, not routine OPD visits</p>
+                  </div>
+                  <div className={`w-10 h-6 rounded-full p-0.5 transition-colors ${admitBed ? "bg-gray-900 dark:bg-white" : "bg-gray-200 dark:bg-gray-700"}`}>
+                    <div className={`w-5 h-5 rounded-full bg-white dark:bg-gray-900 transition-transform ${admitBed ? "translate-x-4" : ""}`} />
+                  </div>
+                </button>
+
+                {admitBed && (
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    <div className="relative">
+                      <select value={selectedFloor} onChange={e => { setSelectedFloor(e.target.value); setSelectedBedId(""); }}
+                        className="w-full h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-3 pr-8 text-sm appearance-none focus:outline-none focus:border-gray-400 cursor-pointer">
+                        <option value="">Floor...</option>
+                        {floors.map(f => <option key={f} value={f}>{f}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                    </div>
+                    <div className="relative">
+                      <select value={selectedBedId} onChange={e => setSelectedBedId(e.target.value)} disabled={!selectedFloor}
+                        className="w-full h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-3 pr-8 text-sm appearance-none focus:outline-none focus:border-gray-400 cursor-pointer disabled:opacity-50">
+                        <option value="">{selectedFloor ? (vacantBedsOnFloor.length ? "Bed..." : "No vacant beds") : "Pick a floor first"}</option>
+                        {vacantBedsOnFloor.map(b => <option key={b._id} value={b._id}>Bed {b.bedNumber}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Phone with autocomplete */}
