@@ -41,6 +41,7 @@ export interface IPrescription extends Document {
   labTests?:      { tests: string[]; notes?: string } | null;
   rxCode?:        string;
   date:           string;
+  followUpDate?:  string | null;
 }
 
 const PrescriptionMedSchema = new Schema<PrescriptionMedicineDoc>(
@@ -92,6 +93,7 @@ const PrescriptionSchema = new Schema<IPrescription>(
     },
     rxCode: { type: String },
     date:   { type: String, required: true },
+    followUpDate: { type: String, default: null },
   },
   { timestamps: true }
 );

@@ -10,7 +10,7 @@ import { todayString } from "../utils/generateToken";
 export const createPrescription = asyncHandler(async (req: AuthRequest, res: Response) => {
   const {
     patientId, problems, complaints, investigations, diagnoses,
-    medicines, vitals, notes, referral, labTests, queueEntryId, rxCode,
+    medicines, vitals, notes, referral, labTests, queueEntryId, rxCode, followUpDate,
   } = req.body;
 
   if (!patientId || !medicines || medicines.length === 0) {
@@ -62,6 +62,7 @@ export const createPrescription = asyncHandler(async (req: AuthRequest, res: Res
     labTests:       labTests || null,
     rxCode:         rxCode   || undefined,
     date:           todayString(),
+    followUpDate:   followUpDate || null,
   });
 
   // Queue is marked done separately when doctor sends prescription via WhatsApp

@@ -1,6 +1,8 @@
 import { Response } from "express";
 import Queue from "../models/Queue";
 import Staff from "../models/Staff";
+import Patient from "../models/Patient";
+import Payment from "../models/Payment";
 import { AuthRequest } from "../middleware/auth";
 import { asyncHandler } from "../middleware/errorHandler";
 import { todayString } from "../utils/generateToken";
@@ -123,14 +125,39 @@ export const removeFromQueue = asyncHandler(async (req: AuthRequest, res: Respon
   res.json({ message: "Removed from queue" });
 });
 
-// GET /api/queue/history?date=YYYY-MM-DD — all entries for a given date (all statuses)
+// GET /api/queue/history?date=YYYY-MM-DD[&to=YYYY-MM-DD] — visits for a date or date range
+// (all statuses). Used by the admin "Patients" page — a visit is a Queue entry,
+// independent of whether a payment has been collected for it yet.
 export const getQueueHistory = asyncHandler(async (req: AuthRequest, res: Response) => {
   const date = (req.query.date as string) || todayString();
+  const to   = (req.query.to as string) || date;
 
-  const entries = await Queue.find({ date })
+  const dateCond = date === to ? date : { $gte: date, $lte: to };
+
+  const entries = await Queue.find({ date: dateCond })
     .populate("patient")
     .populate("doctor", "name")
-    .sort({ queueNumber: 1 });
+    .sort({ date: -1, queueNumber: 1 });
 
-  res.json({ entries, date });
+  const patientIds = entries.map(e => e.patient?._id).filter(Boolean);
+  const [payments, patients] = await Promise.all([
+    Payment.find({ patient: { $in: patientIds }, date: dateCond }),
+    Patient.find({ _id: { $in: patientIds } }, "createdAt"),
+  ]);
+
+  const paymentByPatientDate = new Map(payments.map(p => [`${p.patient}-${p.date}`, p]));
+  const firstVisitDate = new Map(patients.map(p => [String(p._id), (p as any).createdAt?.toISOString().slice(0, 10)]));
+
+  const enriched = entries.map(e => {
+    const obj: any = e.toObject();
+    const pid = String(e.patient?._id || "");
+    const payment = paymentByPatientDate.get(`${pid}-${e.date}`);
+    return {
+      ...obj,
+      payment: payment ? { amount: payment.amount, method: payment.method, type: payment.type } : null,
+      visitType: firstVisitDate.get(pid) === e.date ? "new" : "existing",
+    };
+  });
+
+  res.json({ entries: enriched, date, to });
 });
