@@ -3,16 +3,17 @@ import Patient from "../models/Patient";
 import { AuthRequest } from "../middleware/auth";
 import { asyncHandler } from "../middleware/errorHandler";
 
-// GET /api/patients?search=
+// GET /api/patients?search=&isChild=true
 export const getPatients = asyncHandler(async (req: AuthRequest, res: Response) => {
   const q = (req.query.search as string || "").trim();
-  const filter = q
+  const filter: any = q
     ? { $or: [
         { name:  { $regex: q, $options: "i" } },
         { phone: { $regex: q.replace(/\D/g, ""), $options: "i" } },
         { permanentCode: { $regex: q, $options: "i" } },
       ] }
     : {};
+  if (req.query.isChild !== undefined) filter.isChild = req.query.isChild === "true";
   const patients = await Patient.find(filter).sort({ createdAt: -1 }).limit(q ? 10 : 500);
   res.json({ patients });
 });

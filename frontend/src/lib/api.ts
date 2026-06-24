@@ -48,8 +48,13 @@ export const apiLogin = (body: { email: string; password: string; role: string }
 export const apiGetMe = () => request("/auth/me");
 
 // ── Patients ──────────────────────────────────────────────────────────────────
-export const apiGetPatients = (search?: string) =>
-  request(`/patients${search ? `?search=${search}` : ""}`);
+export const apiGetPatients = (search?: string, isChild?: boolean) => {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (isChild !== undefined) params.set("isChild", String(isChild));
+  const qs = params.toString();
+  return request(`/patients${qs ? `?${qs}` : ""}`);
+};
 
 export const apiGetPatient = (id: string) => request(`/patients/${id}`);
 

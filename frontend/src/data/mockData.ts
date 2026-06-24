@@ -32,6 +32,8 @@ export interface Patient {
   consentGiven?: boolean;
   registeredAt?: string;
   registeredBy?: string;
+  dateOfBirth?: string;
+  isChild?: boolean;
 }
 
 export interface Medicine {

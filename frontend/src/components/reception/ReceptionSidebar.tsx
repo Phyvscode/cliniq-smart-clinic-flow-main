@@ -1,12 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import {
   Users, Calendar, Phone, BedDouble, FlaskConical,
-  ClipboardList, LogOut, ChevronLeft,
+  ClipboardList, LogOut, ChevronLeft, UserPlus, Baby,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV = [
   { key: "reception",    icon: Users,         label: "Reception",       path: "/reception/dashboard"    },
+  { key: "patient",      icon: UserPlus,      label: "Patient",         path: "/reception/patient"      },
+  { key: "children",     icon: Baby,          label: "Children",        path: "/reception/children"     },
   { key: "appointments", icon: Calendar,      label: "Appointments",    path: "/reception/appointments" },
   { key: "tests",        icon: FlaskConical,  label: "Tests",           path: "/reception/tests"        },
   { key: "followups",    icon: Phone,         label: "Follow-ups",      path: "/reception/followups"    },
@@ -14,7 +16,7 @@ const NAV = [
   { key: "history",      icon: ClipboardList, label: "Patient History", path: "/reception/history"   },
 ];
 
-export type ReceptionNav = "reception" | "appointments" | "tests" | "followups" | "beds" | "history";
+export type ReceptionNav = "reception" | "patient" | "children" | "appointments" | "tests" | "followups" | "beds" | "history";
 
 interface Props { active: ReceptionNav; }
 

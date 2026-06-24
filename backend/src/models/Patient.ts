@@ -32,6 +32,7 @@ export interface IPatient extends Document {
   consentGiven?:        boolean;
   registeredBy?:        mongoose.Types.ObjectId;
   permanentCode?:       string;  // unique 6-digit lifetime code
+  isChild?:             boolean; // true when registered via the Children flow (phone belongs to a parent)
 }
 
 const PatientSchema = new Schema<IPatient>(
@@ -66,6 +67,7 @@ const PatientSchema = new Schema<IPatient>(
     consentGiven:          { type: Boolean, default: false },
     registeredBy:          { type: Schema.Types.ObjectId, ref: "User" },
     permanentCode:         { type: String, unique: true, sparse: true },
+    isChild:               { type: Boolean, default: false },
   },
   {
     timestamps: true,

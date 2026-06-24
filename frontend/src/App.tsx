@@ -10,6 +10,8 @@ import DoctorPrescription from "@/pages/doctor/DoctorPrescription";
 import DoctorConsultation from "@/pages/doctor/DoctorConsultation";
 import ReceptionAuthPage     from "@/pages/reception/ReceptionAuthPage";
 import ReceptionDashboard    from "@/pages/reception/ReceptionDashboard";
+import ReceptionPatient      from "@/pages/reception/ReceptionPatient";
+import ReceptionChildren     from "@/pages/reception/ReceptionChildren";
 import ReceptionAppointments from "@/pages/reception/ReceptionAppointments";
 import ReceptionTests        from "@/pages/reception/ReceptionTests";
 import ReceptionFollowUps    from "@/pages/reception/ReceptionFollowUps";
@@ -44,6 +46,8 @@ const App = () => (
         <Route path="/doctor/history"      element={<RequireAuth role="doctor">     <PatientHistoryPage portal="doctor" /> </RequireAuth>} />
         <Route path="/reception"           element={<ReceptionAuthPage />} />
         <Route path="/reception/dashboard"     element={<RequireAuth role="reception">  <ReceptionDashboard />    </RequireAuth>} />
+        <Route path="/reception/patient"       element={<RequireAuth role="reception">  <ReceptionPatient />      </RequireAuth>} />
+        <Route path="/reception/children"      element={<RequireAuth role="reception">  <ReceptionChildren />     </RequireAuth>} />
         <Route path="/reception/appointments"  element={<RequireAuth role="reception">  <ReceptionAppointments /></RequireAuth>} />
         <Route path="/reception/tests"         element={<RequireAuth role="reception">  <ReceptionTests />        </RequireAuth>} />
         <Route path="/reception/followups"     element={<RequireAuth role="reception">  <ReceptionFollowUps />    </RequireAuth>} />
