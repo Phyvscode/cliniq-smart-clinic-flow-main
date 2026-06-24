@@ -2,7 +2,7 @@ import { Router } from "express";
 import { protect, requireRole } from "../middleware/auth";
 import {
   getPharmacyQueue, lookupByPatientCode, lookupByRxCode,
-  collectPrescription, getMedicines, addMedicine, deleteMedicine,
+  collectPrescription, getMedicines, addMedicine, deleteMedicine, restockMedicine,
   createOtcSale, getOtcSales,
 } from "../controllers/pharmacyController";
 
@@ -15,6 +15,7 @@ router.get("/lookup/rx/:rxCode",        lookupByRxCode);
 router.post("/collect/:prescriptionId", collectPrescription);
 router.get("/medicines",                getMedicines);
 router.post("/medicines",               addMedicine);
+router.patch("/medicines/:id/restock",  restockMedicine);
 router.delete("/medicines/:id",         deleteMedicine);
 
 // OTC walk-in sales

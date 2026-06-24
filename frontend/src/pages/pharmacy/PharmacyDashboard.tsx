@@ -5,7 +5,7 @@ import {
   LogOut, KeyRound, Archive, CheckCircle2, IndianRupee, Receipt,
   Banknote, Smartphone, CreditCard, Wallet,
   ShoppingCart, Plus, MinusCircle, PlusCircle, Trash2,
-  Printer, Send, User, Pill, ChevronRight,
+  Printer, Send, User, Pill, ChevronRight, ChevronLeft, PackagePlus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
@@ -13,9 +13,12 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import ChangePinModal from "@/components/ChangePinModal";
 import {
   apiPharmacyQueue, apiPharmacyCollect, apiPharmacyMedicines,
-  apiPharmacyAddMedicine, apiPharmacyDeleteMedicine, apiOtcCreate,
+  apiPharmacyDeleteMedicine, apiPharmacyRestockMedicine, apiOtcCreate,
   apiPharmacyLookup, apiPharmacyLookupRx,
 } from "@/lib/api";
+import { DEPARTMENT_MEDICINE_CATEGORIES } from "@/data/medicineCategoriesByDepartment";
+
+const DEPARTMENTS = Object.keys(DEPARTMENT_MEDICINE_CATEGORIES);
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAY_METHODS = [
@@ -391,23 +394,26 @@ const WalkInModal = ({ medicines, onClose }: { medicines: any[]; onClose: () => 
 
 // ── Medicines Modal ───────────────────────────────────────────────────────────
 const MedicinesModal = ({ medicines, onClose, onRefresh }: { medicines: any[]; onClose: () => void; onRefresh: () => void }) => {
-  const [search,    setSearch]    = useState("");
-  const [showAdd,   setShowAdd]   = useState(false);
-  const [newMed,    setNewMed]    = useState({ name: "", category: "", manufacturer: "", unit: "" });
-  const [adding,    setAdding]    = useState(false);
-  const [error,     setError]     = useState("");
+  const [search,      setSearch]      = useState("");
+  const [step,        setStep]        = useState<"list"|"department"|"medicine"|"stock">("list");
+  const [selectedDept,setSelectedDept]= useState("");
+  const [deptSearch,  setDeptSearch]  = useState("");
+  const [selectedMed, setSelectedMed] = useState<any>(null);
+  const [addStock,    setAddStock]    = useState("");
+  const [price,       setPrice]       = useState("");
+  const [saving,      setSaving]      = useState(false);
+  const [error,       setError]       = useState("");
 
   const filtered = medicines.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
 
-  const handleAdd = async () => {
-    if (!newMed.name.trim()) { setError("Name is required"); return; }
-    setAdding(true); setError("");
-    try {
-      await apiPharmacyAddMedicine(newMed);
-      setNewMed({ name: "", category: "", manufacturer: "", unit: "" });
-      setShowAdd(false); onRefresh();
-    } catch (e: any) { setError(e.message || "Failed"); }
-    finally { setAdding(false); }
+  const deptMeds = selectedDept
+    ? medicines.filter(m => (DEPARTMENT_MEDICINE_CATEGORIES[selectedDept] || []).includes(m.category))
+        .filter(m => m.name.toLowerCase().includes(deptSearch.toLowerCase()))
+    : [];
+
+  const reset = () => {
+    setStep("list"); setSelectedDept(""); setDeptSearch(""); setSelectedMed(null);
+    setAddStock(""); setPrice(""); setError("");
   };
 
   const handleDelete = async (id: string) => {
@@ -415,55 +421,151 @@ const MedicinesModal = ({ medicines, onClose, onRefresh }: { medicines: any[]; o
     await apiPharmacyDeleteMedicine(id); onRefresh();
   };
 
+  const handleSaveStock = async () => {
+    const qty = Number(addStock);
+    if (!qty || qty <= 0) { setError("Enter a valid quantity to add."); return; }
+    setSaving(true); setError("");
+    try {
+      await apiPharmacyRestockMedicine(selectedMed._id, {
+        addStock: qty,
+        ...(price !== "" ? { price: Number(price) } : {}),
+      });
+      onRefresh();
+      reset();
+    } catch (e: any) { setError(e.message || "Failed to update stock"); }
+    finally { setSaving(false); }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
         className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
-          <h2 className="text-xl font-serif text-gray-900 dark:text-white">Medicines ({medicines.length})</h2>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowAdd(s => !s)} className="h-8 px-3 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-semibold flex items-center gap-1.5">
-              <Plus className="w-3.5 h-3.5" /> Add
-            </button>
-            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X className="w-4 h-4" /></button>
+            {step !== "list" && (
+              <button onClick={() => step === "stock" ? setStep("medicine") : step === "medicine" ? setStep("department") : reset()}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
+            <h2 className="text-xl font-serif text-gray-900 dark:text-white">
+              {step === "list" ? `Medicines (${medicines.length})`
+                : step === "department" ? "Select department"
+                : step === "medicine" ? selectedDept
+                : selectedMed?.name}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {step === "list" && (
+              <button onClick={() => setStep("department")} className="h-8 px-3 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-semibold flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            )}
+            <button onClick={() => { onClose(); reset(); }} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X className="w-4 h-4" /></button>
           </div>
         </div>
+
         <div className="px-6 py-4 max-h-[70vh] overflow-y-auto space-y-3">
-          {showAdd && (
-            <div className="space-y-2 bg-gray-50 dark:bg-white/5 rounded-xl p-4">
-              <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="Name *" value={newMed.name} onChange={e => setNewMed(p => ({...p, name: e.target.value}))} className="h-9 rounded-xl" />
-                <Input placeholder="Category" value={newMed.category} onChange={e => setNewMed(p => ({...p, category: e.target.value}))} className="h-9 rounded-xl" />
-                <Input placeholder="Manufacturer" value={newMed.manufacturer} onChange={e => setNewMed(p => ({...p, manufacturer: e.target.value}))} className="h-9 rounded-xl" />
-                <Input placeholder="Unit (tab/ml…)" value={newMed.unit} onChange={e => setNewMed(p => ({...p, unit: e.target.value}))} className="h-9 rounded-xl" />
+
+          {/* ── Step: list all medicines ─────────────────────────────────── */}
+          {step === "list" && (
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <Input placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 rounded-xl" />
+              </div>
+              <div className="divide-y divide-gray-100 dark:divide-white/5">
+                {filtered.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">No medicines found</p>
+                ) : filtered.map(m => (
+                  <div key={m._id} className="flex items-center gap-3 py-2.5">
+                    <Pill className="w-4 h-4 text-gray-300 dark:text-gray-700 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{m.name}</p>
+                      <p className="text-xs text-gray-400">{[m.category, m.type].filter(Boolean).join(" · ")}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{m.price ? `₹${m.price}` : "—"}</p>
+                      <p className={`text-xs font-medium ${!m.stock ? "text-red-500" : "text-gray-400"}`}>
+                        {m.stock ? `${m.stock} in stock` : "Out of stock"}
+                      </p>
+                    </div>
+                    <button onClick={() => handleDelete(m._id)} className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors shrink-0">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ── Step: pick department ────────────────────────────────────── */}
+          {step === "department" && (
+            <div className="grid grid-cols-2 gap-2">
+              {DEPARTMENTS.map(d => (
+                <button key={d} onClick={() => { setSelectedDept(d); setStep("medicine"); }}
+                  className="h-11 px-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500 transition-colors text-left">
+                  {d}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── Step: pick medicine within department ───────────────────── */}
+          {step === "medicine" && (
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <Input placeholder={`Search ${selectedDept} medicines…`} value={deptSearch}
+                  onChange={e => setDeptSearch(e.target.value)} className="pl-8 h-9 rounded-xl" autoFocus />
+              </div>
+              <div className="divide-y divide-gray-100 dark:divide-white/5">
+                {deptMeds.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">No medicines found for this department</p>
+                ) : deptMeds.map(m => (
+                  <button key={m._id} onClick={() => { setSelectedMed(m); setStep("stock"); }}
+                    className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                    <Pill className="w-4 h-4 text-gray-300 dark:text-gray-700 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{m.name}</p>
+                      <p className="text-xs text-gray-400">{m.type}</p>
+                    </div>
+                    <p className={`text-xs font-medium shrink-0 ${!m.stock ? "text-red-500" : "text-gray-400"}`}>
+                      {m.stock ? `${m.stock} in stock` : "Out of stock"}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ── Step: enter stock + price ────────────────────────────────── */}
+          {step === "stock" && selectedMed && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedMed.name}</p>
+                <p className="text-xs text-gray-400">{[selectedMed.category, selectedMed.type].filter(Boolean).join(" · ")}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Current stock: {selectedMed.stock || 0} · Current price: {selectedMed.price ? `₹${selectedMed.price}` : "not set"}
+                </p>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold tracking-widest text-gray-400 mb-1.5 block">ADD TO STOCK</label>
+                <Input type="number" min={1} placeholder="Quantity to add" value={addStock}
+                  onChange={e => setAddStock(e.target.value)} className="h-10 rounded-xl" />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold tracking-widest text-gray-400 mb-1.5 block">PRICE (₹ PER UNIT)</label>
+                <Input type="number" min={0} placeholder="Leave blank to keep current price" value={price}
+                  onChange={e => setPrice(e.target.value)} className="h-10 rounded-xl" />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
-              <button onClick={handleAdd} disabled={adding}
-                className="w-full h-9 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-40">
-                {adding ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Add Medicine
+              <button onClick={handleSaveStock} disabled={saving}
+                className="w-full h-10 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-40">
+                {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <PackagePlus className="w-3.5 h-3.5" />} Update Stock
               </button>
             </div>
           )}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <Input placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 rounded-xl" />
-          </div>
-          <div className="divide-y divide-gray-100 dark:divide-white/5">
-            {filtered.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">No medicines found</p>
-            ) : filtered.map(m => (
-              <div key={m._id} className="flex items-center gap-3 py-2.5">
-                <Pill className="w-4 h-4 text-gray-300 dark:text-gray-700 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{m.name}</p>
-                  <p className="text-xs text-gray-400">{[m.category, m.manufacturer, m.unit].filter(Boolean).join(" · ")}</p>
-                </div>
-                <button onClick={() => handleDelete(m._id)} className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
         </div>
       </motion.div>
     </div>

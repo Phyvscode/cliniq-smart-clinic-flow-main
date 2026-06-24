@@ -43,6 +43,8 @@ export interface Medicine {
   salt?: string;
   strength?: string;
   category?: string;
+  stock?: number;
+  price?: number;
 }
 
 export interface PrescriptionMedicine {

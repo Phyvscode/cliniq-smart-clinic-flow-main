@@ -725,6 +725,7 @@ const DoctorConsultation = () => {
                               <span>
                                 <span className="font-medium text-gray-900 dark:text-white">{med.name}</span>
                                 {med.type && <span className="text-gray-400 ml-1.5 text-xs">· {med.type}</span>}
+                                {!med.stock && <span className="text-red-500 ml-1.5 text-xs font-medium">Out of stock</span>}
                               </span>
                               {added && <Check className="w-3.5 h-3.5 text-gray-400" />}
                             </button>
@@ -759,6 +760,7 @@ const DoctorConsultation = () => {
                                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-left transition-all ${added ? "border-gray-900 dark:border-white bg-gray-50 dark:bg-white/10 opacity-60 cursor-not-allowed" : "border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-white/5"}`}>
                                   <span className="text-sm font-semibold text-gray-900 dark:text-white">{med.name}</span>
                                   {med.type && <span className="text-xs text-gray-400">· {med.type}</span>}
+                                  {!med.stock && <span className="text-xs text-red-500">Out of stock</span>}
                                   {added && <Check className="w-3 h-3 text-gray-400 ml-0.5" />}
                                 </button>
                               );

@@ -741,6 +741,9 @@ const DoctorPrescription = () => {
                           {(med as any).category && (med as any).category !== "General" && (
                             <span className="text-xs text-primary/70 ml-1.5 font-medium">{(med as any).category}</span>
                           )}
+                          {!(med as any).stock && (
+                            <span className="text-xs text-red-500 ml-1.5 font-medium">Out of stock</span>
+                          )}
                         </span>
                         {added && <Check className="w-3.5 h-3.5 text-primary" />}
                       </button>

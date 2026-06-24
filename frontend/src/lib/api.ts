@@ -205,6 +205,8 @@ export const apiPharmacyAddMedicine    = (body: any) =>
   request("/pharmacy/medicines", { method: "POST", body: JSON.stringify(body) });
 export const apiPharmacyDeleteMedicine = (id: string) =>
   request(`/pharmacy/medicines/${id}`, { method: "DELETE" });
+export const apiPharmacyRestockMedicine = (id: string, body: { addStock: number; price?: number }) =>
+  request(`/pharmacy/medicines/${id}/restock`, { method: "PATCH", body: JSON.stringify(body) });
 export const apiOtcCreate = (body: any) =>
   request("/pharmacy/otc", { method: "POST", body: JSON.stringify(body) });
 export const apiOtcSales  = () => request("/pharmacy/otc");

@@ -101,6 +101,15 @@ export const collectPrescription = asyncHandler(async (req: AuthRequest, res: Re
     return;
   }
 
+  // Decrement stock for each dispensed medicine (best-effort — a missing
+  // medicine reference shouldn't block the transaction from completing).
+  for (const m of (rx.medicines || []) as any[]) {
+    if (!m.medicine) continue;
+    try {
+      await Medicine.updateOne({ _id: m.medicine }, { $inc: { stock: -(m.quantity || 1) } });
+    } catch { /* ignore */ }
+  }
+
   res.json({ prescription: rx, message: "Medicines dispensed successfully" });
 });
 
@@ -126,6 +135,22 @@ export const addMedicine = asyncHandler(async (req: AuthRequest, res: Response) 
 export const deleteMedicine = asyncHandler(async (req: AuthRequest, res: Response) => {
   await Medicine.findByIdAndDelete(req.params.id);
   res.json({ message: "Medicine deleted" });
+});
+
+// ── PATCH /api/pharmacy/medicines/:id/restock ────────────────────────────────
+// Pharmacist adds stock (and optionally updates price) for an existing,
+// already-seeded catalog medicine. Stock is additive; price overwrites.
+export const restockMedicine = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { addStock, price } = req.body;
+  const qty = Number(addStock);
+  if (!qty || qty <= 0) { res.status(400).json({ message: "addStock must be a positive number" }); return; }
+
+  const update: any = { $inc: { stock: qty } };
+  if (price !== undefined && price !== null && price !== "") update.$set = { price: Number(price) };
+
+  const medicine = await Medicine.findByIdAndUpdate(req.params.id, update, { new: true });
+  if (!medicine) { res.status(404).json({ message: "Medicine not found" }); return; }
+  res.json({ medicine });
 });
 
 // ── OTC Sale ──────────────────────────────────────────────────────────────────
@@ -191,6 +216,14 @@ export const createOtcSale = asyncHandler(async (req: AuthRequest, res: Response
     saleDate:      today,
     billNumber,
   });
+
+  // Decrement stock for each sold medicine (best-effort).
+  for (const it of items as any[]) {
+    if (!it.medicineId) continue;
+    try {
+      await Medicine.updateOne({ _id: it.medicineId }, { $inc: { stock: -Number(it.quantity) } });
+    } catch { /* ignore */ }
+  }
 
   // Send WhatsApp if phone provided
   let billSentVia: "whatsapp" | "print" | "none" = "none";

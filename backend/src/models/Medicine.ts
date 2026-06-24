@@ -10,6 +10,8 @@ export interface IMedicine extends Document {
   name:       string;
   type:       string;
   category:   MedicineCategory;
+  stock:      number;
+  price:      number;
   createdBy?: mongoose.Types.ObjectId;
 }
 
@@ -18,6 +20,8 @@ const MedicineSchema = new Schema<IMedicine>(
     name:      { type: String, required: true, trim: true, unique: true },
     type:      { type: String, required: true, trim: true },
     category:  { type: String, default: "General" },
+    stock:     { type: Number, default: 0, min: 0 },
+    price:     { type: Number, default: 0, min: 0 },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }

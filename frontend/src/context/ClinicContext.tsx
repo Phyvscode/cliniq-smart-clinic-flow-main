@@ -114,6 +114,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name:     m.name,
         type:     m.type,
         category: m.category,
+        stock:    m.stock,
+        price:    m.price,
       })));
     } catch { }
   }, []);
